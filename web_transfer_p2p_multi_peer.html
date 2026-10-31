@@ -1,0 +1,1476 @@
+<!DOCTYPE html>
+<html lang="id" class="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>KirimCepat - P2P Multi-Peer Web Transfer</title>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    animation: {
+                        'fade-in': 'fadeIn 0.5s ease-out',
+                        'bounce-slow': 'bounce 2s infinite',
+                    },
+                    keyframes: {
+                        fadeIn: {
+                            '0%': { opacity: '0', transform: 'translateY(10px)' },
+                            '100%': { opacity: '1', transform: 'translateY(0)' },
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    
+    <!-- PeerJS for WebRTC -->
+    <script src="https://unpkg.com/peerjs@1.5.1/dist/peerjs.min.js"></script>
+    
+    <!-- SweetAlert2 -->
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+    <!-- QRCode Generator -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+    
+    <!-- HTML5 QR Code Scanner -->
+    <script src="https://unpkg.com/html5-qrcode"></script>
+
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap');
+        body {
+            font-family: 'Inter', sans-serif;
+            min-height: 100vh;
+            transition: background 0.5s ease;
+        }
+        .light body {
+            background: linear-gradient(135deg, #4f46e5, #ec4899, #f59e0b);
+            background-size: 400% 400%;
+            animation: gradientBG 15s ease infinite;
+        }
+        .dark body {
+            background: linear-gradient(135deg, #1e1b4b, #831843, #78350f);
+            background-size: 400% 400%;
+            animation: gradientBG 15s ease infinite;
+        }
+        @keyframes gradientBG {
+            0% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+            100% { background-position: 0% 50%; }
+        }
+        .glass-card {
+            background: rgba(255, 255, 255, 0.90);
+            backdrop-filter: blur(16px);
+            border-radius: 1.5rem;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+            transition: all 0.3s ease;
+        }
+        .dark .glass-card {
+            background: rgba(17, 24, 39, 0.85);
+            border: 1px solid rgba(255,255,255,0.1);
+        }
+        ::-webkit-scrollbar { width: 8px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+        .dark ::-webkit-scrollbar-thumb { background: #4b5563; }
+        ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+        
+        #reader video {
+            border-radius: 0.75rem;
+            object-fit: cover;
+        }
+        
+        body.modal-open {
+            overflow: hidden;
+        }
+    </style>
+</head>
+<body class="text-gray-800 dark:text-gray-200 antialiased flex flex-col items-center justify-center p-2 sm:p-4 relative">
+
+    <!-- Theme Switcher -->
+    <div class="absolute top-2 left-2 sm:top-4 sm:left-4 z-10">
+        <button onclick="toggleTheme()" class="w-8 h-8 sm:w-10 sm:h-10 flex items-center justify-center bg-white/30 dark:bg-black/40 backdrop-blur-md rounded-full shadow-lg text-indigo-700 dark:text-yellow-400 hover:scale-110 transition-all border border-white/20">
+            <i id="theme-icon" class="fa-solid fa-moon text-sm sm:text-lg"></i>
+        </button>
+    </div>
+
+    <!-- Language Switcher -->
+    <div class="absolute top-2 right-2 sm:top-4 sm:right-4 z-10">
+        <button onclick="toggleLanguage()" class="w-8 h-8 sm:w-10 sm:h-10 flex items-center justify-center bg-white/30 dark:bg-black/40 backdrop-blur-md rounded-full shadow-lg text-indigo-700 dark:text-white hover:scale-110 transition-all font-bold text-xs sm:text-sm border border-white/20">
+            <span id="lang-text">EN</span>
+        </button>
+    </div>
+
+    <div class="w-full max-w-2xl glass-card p-4 md:p-6 relative overflow-hidden my-8 sm:my-12 transition-all" id="main-card">
+        
+        <!-- Header -->
+        <div class="text-center mb-4 relative">
+            <div class="flex items-center justify-center gap-2 flex-wrap">
+                <h1 class="text-2xl sm:text-3xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-indigo-600 to-pink-500 dark:from-indigo-400 dark:to-pink-400 mb-0">
+                    <i class="fa-solid fa-paper-plane mr-2 text-indigo-600 dark:text-indigo-400"></i>KirimCepat
+                </h1>
+                
+                <!-- Tombol Traktir Kopi -->
+                <button onclick="openDonateModal()" class="bg-amber-500 hover:bg-amber-600 text-white font-bold text-xs sm:text-sm px-3 py-1.5 rounded-full shadow-md hover:shadow-lg transition-all transform hover:scale-105 flex items-center gap-1.5 animate-bounce-slow border border-amber-300/50" title="Traktir Kopi / Donasi">
+                    <i class="fa-solid fa-mug-hot"></i>
+                    <span id="txt-donate-btn">Traktir Kopi</span>
+                </button>
+            </div>
+            <p id="txt-subtitle" class="text-gray-500 dark:text-gray-400 text-xs sm:text-sm mt-1">Multi-Peer P2P file transfer langsung via browser</p>
+        </div>
+
+        <!-- Connection Status & My ID -->
+        <div class="bg-indigo-50 dark:bg-gray-800 rounded-xl p-3 sm:p-4 mb-4 border border-indigo-100 dark:border-gray-700 flex flex-row items-center justify-between gap-2 sm:gap-4">
+            
+            <div class="flex flex-col items-start w-full">
+                <div class="flex flex-row items-center justify-between w-full mb-1">
+                    <p id="txt-my-id-label" class="text-[10px] sm:text-xs text-indigo-500 dark:text-indigo-400 font-semibold uppercase tracking-wider">ID Perangkat Anda</p>
+                    <span id="status-indicator" class="flex items-center gap-1.5 text-[10px] sm:text-xs font-semibold text-yellow-500">
+                        <span class="relative flex h-2.5 w-2.5">
+                          <span id="status-ping" class="animate-ping absolute inline-flex h-full w-full rounded-full bg-yellow-400 opacity-75"></span>
+                          <span id="status-dot" class="relative inline-flex rounded-full h-2.5 w-2.5 bg-yellow-500"></span>
+                        </span>
+                        <span id="txt-status">Menyiapkan...</span>
+                    </span>
+                </div>
+                
+                <div class="flex items-center gap-2 mb-2">
+                    <span id="my-id-display" class="text-2xl sm:text-4xl font-bold text-indigo-700 dark:text-indigo-300 tracking-wider">-----</span>
+                    <button onclick="copyMyId()" class="text-indigo-400 hover:text-indigo-700 dark:hover:text-indigo-200 transition" title="Copy ID">
+                        <i class="fa-regular fa-copy text-lg sm:text-xl"></i>
+                    </button>
+                </div>
+                
+                <div class="flex flex-wrap gap-2">
+                    <button onclick="regenerateID()" class="text-xs sm:text-sm bg-indigo-200 dark:bg-indigo-700 hover:bg-indigo-300 dark:hover:bg-indigo-600 text-indigo-800 dark:text-indigo-100 px-3 py-1.5 rounded-lg transition font-bold flex items-center justify-center gap-1.5 shadow-sm">
+                        <i class="fa-solid fa-rotate"></i> <span id="txt-btn-generate">Ganti ID/QR</span>
+                    </button>
+                    <button id="btn-install" onclick="installApp()" class="hidden text-xs sm:text-sm bg-pink-500 hover:bg-pink-600 text-white px-3 py-1.5 rounded-lg transition font-bold flex items-center justify-center gap-1.5 shadow-sm">
+                        <i class="fa-solid fa-download"></i> <span id="txt-btn-install">Pasang Aplikasi</span>
+                    </button>
+                </div>
+            </div>
+            
+            <!-- QR Code Box (Clickable to Zoom) -->
+            <div class="flex-shrink-0 flex flex-col items-center">
+                <div id="qrcode-container" class="bg-white p-1.5 rounded-lg shadow-sm border border-indigo-100 dark:border-gray-600 cursor-pointer hover:scale-105 transition-transform" onclick="openZoomQR()" title="Klik untuk memperbesar QR"></div>
+                <span class="text-[9px] text-indigo-500 dark:text-indigo-400 mt-1 font-semibold" id="txt-zoom-hint">Klik Zoom</span>
+            </div>
+        </div>
+
+        <!-- Connect Section -->
+        <div id="connect-section" class="mb-4 transition-all duration-500 animate-fade-in">
+            <label id="txt-connect-label" class="block text-xs sm:text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">Hubungkan ke ID Tujuan</label>
+            <div class="flex gap-1.5 sm:gap-2 mb-3">
+                <input type="text" id="peer-id-input" placeholder="Contoh : AB-13" maxlength="6" class="w-full text-center text-lg sm:text-xl font-bold tracking-wider px-2 sm:px-4 py-2 sm:py-3 rounded-xl border-2 border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 dark:focus:ring-indigo-900 outline-none transition-all uppercase">
+                
+                <!-- Button Camera + Text Scan Kode -->
+                <button onclick="openScannerModal()" class="bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-gray-700 dark:text-white py-2 sm:py-3 px-3 sm:px-3.5 rounded-xl transition-all flex items-center gap-1.5 flex-shrink-0 text-xs sm:text-sm font-medium" title="Scan QR">
+                    <i class="fa-solid fa-camera text-base sm:text-lg"></i>
+                    <span id="txt-scan-code" class="hidden sm:inline">Scan Kode</span>
+                </button>
+                
+                <button id="btn-connect" onclick="connectToPeer()" class="bg-gradient-to-r from-indigo-500 to-indigo-600 hover:from-indigo-600 hover:to-indigo-700 text-white font-semibold py-2 sm:py-3 px-3 sm:px-5 rounded-xl shadow-md shadow-indigo-200 dark:shadow-none transition-all flex items-center gap-1 sm:gap-2 flex-shrink-0 text-sm sm:text-base">
+                    <i class="fa-solid fa-link"></i> <span id="txt-btn-connect">Konek</span>
+                </button>
+            </div>
+
+            <!-- Nearby Devices List & WiFi SSID Info -->
+            <div class="bg-gray-50 dark:bg-gray-800/50 rounded-xl p-2 sm:p-3 border border-gray-100 dark:border-gray-700">
+                <div class="flex justify-between items-center mb-1.5">
+                    <div class="flex items-center gap-2">
+                        <p class="text-[10px] sm:text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider flex items-center gap-1.5">
+                            <i class="fa-solid fa-satellite-dish"></i> <span id="txt-nearby-devices">Perangkat Tersedia</span>
+                        </p>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <!-- Re-Scan Button -->
+                        <button onclick="rescanDevices(true)" id="btn-rescan" class="text-[10px] bg-indigo-100 dark:bg-indigo-900 hover:bg-indigo-200 text-indigo-700 dark:text-indigo-300 px-2 py-0.5 rounded-full font-semibold transition flex items-center gap-1 shadow-sm" title="Scan Ulang Perangkat">
+                            <i class="fa-solid fa-rotate-right text-[9px]"></i> <span id="txt-rescan">Re-Scan</span>
+                        </button>
+                        <!-- WiFi Connection Badge -->
+                        <div class="flex items-center gap-1.5 bg-indigo-100/70 dark:bg-indigo-900/40 text-indigo-700 dark:text-indigo-300 px-2 py-0.5 rounded-full text-[10px] font-semibold border border-indigo-200 dark:border-indigo-800">
+                            <i class="fa-solid fa-wifi text-[9px]"></i>
+                            <span id="wifi-ssid-badge">WiFi Lokal Aktif</span>
+                        </div>
+                    </div>
+                </div>
+                <div id="nearby-list" class="flex flex-col gap-1.5 max-h-32 overflow-y-auto pr-1">
+                    <p id="txt-no-devices" class="text-xs text-gray-400 dark:text-gray-500 italic text-center py-2">Belum ada perangkat terdeteksi.</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Transfer Section (Visible when 1 or more peers connected) -->
+        <div id="transfer-section" class="hidden flex flex-col gap-3 mb-4 animate-fade-in relative z-20">
+            
+            <!-- Connected Peers Panel with Checkboxes -->
+            <div class="bg-green-50 dark:bg-green-900/30 border border-green-200 dark:border-green-800 rounded-xl p-3 flex flex-col gap-2">
+                <div class="flex justify-between items-center">
+                    <span class="text-xs sm:text-sm font-bold text-green-800 dark:text-green-300 flex items-center gap-1.5">
+                        <i class="fa-solid fa-network-wired"></i> <span id="txt-connected-peers-title">Perangkat Terhubung</span> (<span id="connected-count">0</span>)
+                    </span>
+                    <div class="flex items-center gap-1.5 text-[10px]">
+                        <button onclick="peerSelectAll()" class="px-2 py-0.5 bg-green-200 dark:bg-green-800 text-green-900 dark:text-green-100 rounded font-semibold hover:bg-green-300 transition" id="txt-peer-sel-all">Semua</button>
+                        <button onclick="peerDeselectAll()" class="px-2 py-0.5 bg-green-200 dark:bg-green-800 text-green-900 dark:text-green-100 rounded font-semibold hover:bg-green-300 transition" id="txt-peer-desel">Batal</button>
+                        <button onclick="peerInvert()" class="px-2 py-0.5 bg-green-200 dark:bg-green-800 text-green-900 dark:text-green-100 rounded font-semibold hover:bg-green-300 transition" id="txt-peer-inv">Balik</button>
+                    </div>
+                </div>
+                <div id="connected-peers-list" class="flex flex-col gap-1.5 max-h-32 overflow-y-auto pr-1">
+                    <!-- Dynamic multi-peer list injected here -->
+                </div>
+            </div>
+
+            <!-- File Input -->
+            <label class="flex flex-col items-center justify-center w-full h-24 sm:h-28 border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-xl cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800 hover:border-indigo-400 dark:hover:border-indigo-500 transition-all group">
+                <div class="flex flex-col items-center justify-center pt-3 pb-4">
+                    <i class="fa-solid fa-cloud-arrow-up text-2xl sm:text-3xl text-gray-400 group-hover:text-indigo-500 mb-1 sm:mb-2 transition-colors"></i>
+                    <p class="text-xs sm:text-sm text-gray-500 dark:text-gray-400 font-semibold text-center px-4"><span id="txt-select-file">Pilih Satu/Banyak File</span></p>
+                </div>
+                <input id="file-input" type="file" class="hidden" multiple onchange="handleFileSelect(event)" />
+            </label>
+
+            <!-- Staging Section (Queue before send) -->
+            <div id="staging-section" class="hidden p-2 sm:p-3 bg-gray-50 dark:bg-gray-800/50 rounded-xl border border-gray-100 dark:border-gray-700 animate-fade-in shadow-inner">
+                <div class="flex justify-between items-center mb-2">
+                    <h3 class="text-xs sm:text-sm font-bold text-gray-800 dark:text-white uppercase tracking-wider flex items-center gap-1.5">
+                        <i class="fa-solid fa-list-check text-indigo-500"></i> <span id="txt-stage-title">Antrean File</span>
+                    </h3>
+                </div>
+                <div class="flex flex-wrap gap-1.5 text-[10px] sm:text-xs mb-2">
+                    <button onclick="stageSelectAll()" class="px-1.5 py-1 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded hover:bg-gray-100 dark:hover:bg-gray-600 transition shadow-sm" id="txt-stage-sel-all">Pilih Semua</button>
+                    <button onclick="stageDeselectAll()" class="px-1.5 py-1 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded hover:bg-gray-100 dark:hover:bg-gray-600 transition shadow-sm" id="txt-stage-desel">Batal Pilih</button>
+                    <button onclick="stageInvert()" class="px-1.5 py-1 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded hover:bg-gray-100 dark:hover:bg-gray-600 transition shadow-sm" id="txt-stage-inv">Balikkan</button>
+                    <div class="flex-grow"></div>
+                    <button onclick="stageDeleteSelected()" class="px-1.5 py-1 bg-red-100 dark:bg-red-900/50 text-red-600 dark:text-red-400 rounded hover:bg-red-200 dark:hover:bg-red-800 transition font-bold shadow-sm" id="txt-stage-del-sel"><i class="fa-solid fa-xmark mr-1"></i>Hapus</button>
+                    <button onclick="stageClearAll()" class="px-1.5 py-1 bg-red-500 text-white rounded hover:bg-red-600 transition font-bold shadow-sm" id="txt-stage-clear"><i class="fa-solid fa-trash mr-1"></i>Bersihkan</button>
+                </div>
+                <div id="staging-list" class="flex flex-col gap-1.5 max-h-[15rem] overflow-y-auto pr-1 pb-1"></div>
+            </div>
+
+            <button id="btn-send" onclick="sendSelectedStagedFiles()" disabled class="w-full bg-gradient-to-r from-pink-500 to-pink-600 hover:from-pink-600 hover:to-pink-700 text-white font-bold py-3 sm:py-4 rounded-xl shadow-md shadow-pink-200 dark:shadow-none transition-all disabled:opacity-50 disabled:cursor-not-allowed flex justify-center items-center gap-2 text-sm sm:text-lg">
+                <i class="fa-regular fa-paper-plane"></i> 
+                <div class="flex flex-col items-center leading-tight">
+                    <span id="txt-btn-send-main">Kirim File (0) ke (0) Perangkat</span>
+                    <span id="txt-btn-send-size" class="text-[10px] font-normal text-pink-100">0 Bytes</span>
+                </div>
+            </button>
+        </div>
+
+        <!-- Progress Bar -->
+        <div id="progress-section" class="hidden animate-fade-in mt-3 relative z-20">
+            <div class="flex justify-between text-[10px] sm:text-xs font-semibold text-gray-600 dark:text-gray-300 mb-1">
+                <span id="progress-status-text" class="truncate pr-2">Mengirim paralel...</span>
+                <span id="progress-percent">0%</span>
+            </div>
+            <div class="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2 overflow-hidden">
+                <div id="progress-bar" class="bg-gradient-to-r from-indigo-500 to-pink-500 h-2 rounded-full transition-all duration-200" style="width: 0%"></div>
+            </div>
+        </div>
+
+    </div>
+    
+    <!-- Received Files Section -->
+    <div id="received-container" class="w-full max-w-2xl px-2 sm:px-0 mx-auto hidden relative z-10 mb-4">
+        <div class="glass-card p-4 md:p-6 animate-fade-in border-2 border-emerald-500/30">
+            <div class="flex justify-between items-center mb-3">
+                <h3 class="text-sm font-bold text-gray-800 dark:text-white uppercase tracking-wider flex items-center gap-2">
+                    <i class="fa-solid fa-download text-emerald-500"></i>
+                    <span id="txt-recv-title">Daftar File Diterima</span>
+                </h3>
+                <div class="flex items-center gap-2">
+                    <button onclick="openDownloadsFolderHint()" class="text-xs bg-indigo-100 dark:bg-indigo-900/60 text-indigo-700 dark:text-indigo-300 hover:bg-indigo-200 px-2.5 py-1 rounded-lg font-semibold transition flex items-center gap-1 shadow-sm">
+                        <img width="14" height="14" src="https://img.icons8.com/color/48/folder-invoices.png" alt="folder"/>
+                        <span id="txt-open-folder">Buka Folder</span>
+                    </button>
+                    <button onclick="clearReceivedFiles()" class="text-xs text-red-500 hover:text-red-700 font-semibold transition flex items-center gap-1 bg-red-50 dark:bg-red-950/40 px-2.5 py-1 rounded-lg shadow-sm">
+                        <i class="fa-solid fa-trash"></i><span id="txt-recv-clear">Clear</span>
+                    </button>
+                </div>
+            </div>
+            <div id="received-list" class="flex flex-col gap-2 max-h-[16rem] overflow-y-auto pr-1">
+                <!-- Received files injected here -->
+            </div>
+        </div>
+    </div>
+
+    <!-- History Section (Sent History) -->
+    <div id="history-container" class="w-full max-w-2xl px-2 sm:px-0 mx-auto hidden relative z-10">
+        <div id="history-section" class="glass-card p-4 md:p-6 mb-8 animate-fade-in">
+            <div class="flex justify-between items-center mb-3">
+                <h3 class="text-sm font-bold text-gray-800 dark:text-white uppercase tracking-wider"><i class="fa-solid fa-clock-rotate-left mr-2"></i><span id="txt-history-title">Riwayat Terkirim</span></h3>
+                <button onclick="clearHistory()" class="text-xs text-red-500 hover:text-red-700 font-semibold transition"><i class="fa-solid fa-trash mr-1"></i><span id="txt-history-clear">Bersihkan</span></button>
+            </div>
+            
+            <div class="flex flex-wrap gap-1.5 mb-3 text-[10px] sm:text-xs">
+                <button onclick="historySelectAll()" class="px-1.5 py-1 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded hover:bg-gray-100 dark:hover:bg-gray-600 transition shadow-sm" id="txt-hist-sel-all">Pilih Semua</button>
+                <button onclick="historyDeselectAll()" class="px-1.5 py-1 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded hover:bg-gray-100 dark:hover:bg-gray-600 transition shadow-sm" id="txt-hist-desel">Batal Pilih</button>
+                <button onclick="historyInvert()" class="px-1.5 py-1 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded hover:bg-gray-100 dark:hover:bg-gray-600 transition shadow-sm" id="txt-hist-inv">Balikkan</button>
+                <div class="flex-grow"></div>
+                <button onclick="historyDeleteSelected()" class="px-1.5 py-1 bg-red-100 dark:bg-red-900/50 text-red-600 dark:text-red-400 rounded hover:bg-red-200 dark:hover:bg-red-800 transition font-bold shadow-sm" id="txt-hist-del-sel"><i class="fa-solid fa-xmark mr-1"></i>Hapus</button>
+            </div>
+            
+            <div id="history-list" class="flex flex-col gap-1.5 max-h-[15rem] overflow-y-auto pr-1"></div>
+        </div>
+    </div>
+
+    <!-- Footer -->
+    <div class="mb-6 text-white/80 dark:text-white/60 text-[10px] sm:text-xs max-w-lg mx-auto text-center bg-black/20 p-3 rounded-xl backdrop-blur-sm relative z-10">
+        <p id="txt-footer-info"><i class="fa-solid fa-circle-info mr-1"></i> Hubungkan ke banyak perangkat sekaligus. P2P Multi-Peer Transfer (Tanpa Server).</p>
+    </div>
+
+    <!-- ================= MODALS ================= -->
+    
+    <!-- QR Scanner Modal -->
+    <div id="modal-scanner" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 hidden flex justify-center items-center p-4">
+        <div class="bg-white dark:bg-gray-800 rounded-2xl p-4 max-w-sm w-full text-center relative shadow-2xl animate-fade-in">
+            <button onclick="closeScannerModal()" class="absolute top-3 right-3 text-gray-400 hover:text-gray-800 dark:hover:text-white z-10">
+                <i class="fa-solid fa-xmark text-xl"></i>
+            </button>
+            <h3 class="text-base font-bold mb-2 text-gray-800 dark:text-white" id="txt-scan-title">Arahkan ke QR Code</h3>
+            <div id="reader" class="w-full bg-black rounded-xl overflow-hidden mt-2 border-2 border-indigo-500"></div>
+        </div>
+    </div>
+
+    <!-- QR Zoom Popup Modal -->
+    <div id="modal-zoom-qr" class="fixed inset-0 bg-black/85 backdrop-blur-md z-50 hidden flex justify-center items-center p-4">
+        <div class="bg-white dark:bg-gray-900 rounded-3xl p-6 sm:p-8 w-[85vw] h-[85vh] max-w-4xl max-h-[85vh] text-center relative shadow-2xl animate-fade-in border border-gray-200 dark:border-gray-700 flex flex-col items-center justify-between overflow-y-auto">
+            <button onclick="closeZoomQR()" class="absolute top-4 right-4 text-gray-400 hover:text-gray-800 dark:hover:text-white text-2xl z-20 bg-gray-100 dark:bg-gray-800 w-10 h-10 rounded-full flex items-center justify-center transition">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+            <h3 class="text-xl sm:text-2xl font-bold mb-2 text-gray-800 dark:text-white" id="txt-zoom-title">QR Code Perangkat</h3>
+            <div class="flex-grow flex items-center justify-center my-2">
+                <div class="bg-white p-6 rounded-3xl inline-block shadow-2xl border-4 border-indigo-100 dark:border-indigo-900" id="zoomed-qrcode-container"></div>
+            </div>
+            <div>
+                <p class="text-xl sm:text-3xl font-mono font-bold text-indigo-600 dark:text-indigo-400 mt-2 tracking-wider" id="zoom-id-display">-----</p>
+                <p class="text-xs sm:text-sm text-gray-500 dark:text-gray-400 mt-1" id="txt-zoom-desc">Scan QR ini dari perangkat lain untuk terhubung.</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Traktir Kopi / Donate Modal -->
+    <div id="modal-donate" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 hidden flex justify-center items-center p-4">
+        <div class="bg-white dark:bg-gray-900 rounded-3xl p-6 sm:p-8 max-w-md w-full text-center relative shadow-2xl animate-fade-in border border-gray-200 dark:border-gray-700 flex flex-col items-center max-h-[90vh] overflow-y-auto">
+            <button onclick="closeDonateModal()" class="absolute top-4 right-4 text-gray-400 hover:text-gray-800 dark:hover:text-white text-xl z-20 bg-gray-100 dark:bg-gray-800 w-9 h-9 rounded-full flex items-center justify-center transition">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+            
+            <div class="w-12 h-12 bg-amber-100 dark:bg-amber-900/50 text-amber-600 dark:text-amber-400 rounded-2xl flex items-center justify-center text-2xl mb-3 shadow-sm">
+                <i class="fa-solid fa-mug-hot"></i>
+            </div>
+            
+            <h3 class="text-xl sm:text-2xl font-bold mb-1 text-gray-800 dark:text-white" id="txt-donate-modal-title">Traktir Kopi Pengembang</h3>
+            <p class="text-xs sm:text-sm text-gray-500 dark:text-gray-400 mb-4" id="txt-donate-modal-desc">Dukung pengembangan aplikasi KirimCepat agar terus gratis & bebas iklan!</p>
+            
+            <!-- QRIS Image Box -->
+            <div class="bg-white p-3 rounded-2xl shadow-md border-2 border-amber-200 dark:border-amber-900 mb-4 inline-block">
+                <div id="qris-qrcode-container" class="flex justify-center items-center p-2"></div>
+                <span class="block text-[11px] font-bold text-gray-700 dark:text-gray-300 mt-2">QRIS All Payment (Gopay, OVO, Dana, BCA, QRIS)</span>
+            </div>
+
+            <!-- E-Wallet / Bank Numbers -->
+            <div class="w-full bg-gray-50 dark:bg-gray-800/60 rounded-2xl p-3 border border-gray-200 dark:border-gray-700 text-left text-xs sm:text-sm mb-3">
+                <p class="font-bold text-gray-700 dark:text-gray-300 mb-2 flex items-center gap-1.5">
+                    <i class="fa-solid fa-wallet text-indigo-500"></i> <span id="txt-ewallet-title">Nomor E-Wallet / Transfer Bank:</span>
+                </p>
+                <div class="flex flex-col gap-2">
+                    <div class="flex justify-between items-center bg-white dark:bg-gray-800 p-2 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm">
+                        <div>
+                            <span class="text-[10px] text-gray-400 block font-semibold uppercase">DANA / OVO / GOPAY</span>
+                            <span class="font-mono font-bold text-gray-800 dark:text-white text-sm">0812-3456-7890</span>
+                        </div>
+                        <button onclick="copyToClipboard('081234567890', 'Nomor E-Wallet disalin!')" class="text-xs bg-indigo-100 dark:bg-indigo-900 text-indigo-700 dark:text-indigo-300 px-2.5 py-1.5 rounded-lg font-semibold hover:bg-indigo-200 transition">
+                            <i class="fa-regular fa-copy mr-1"></i> Salin
+                        </button>
+                    </div>
+                    <div class="flex justify-between items-center bg-white dark:bg-gray-800 p-2 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm">
+                        <div>
+                            <span class="text-[10px] text-gray-400 block font-semibold uppercase">BCA (A.N. Pengembang)</span>
+                            <span class="font-mono font-bold text-gray-800 dark:text-white text-sm">1234-5678-9012</span>
+                        </div>
+                        <button onclick="copyToClipboard('123456789012', 'Nomor Rekening BCA disalin!')" class="text-xs bg-indigo-100 dark:bg-indigo-900 text-indigo-700 dark:text-indigo-300 px-2.5 py-1.5 rounded-lg font-semibold hover:bg-indigo-200 transition">
+                            <i class="fa-regular fa-copy mr-1"></i> Salin
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <p class="text-[11px] text-gray-400 dark:text-gray-500 italic" id="txt-donate-thanks">Terima kasih atas dukungan tulus Anda! 🙏</p>
+        </div>
+    </div>
+
+
+    <script>
+        // --- 0. THEME MANAGEMENT ---
+        let isDarkMode = false;
+        function toggleTheme() {
+            const html = document.documentElement;
+            const icon = document.getElementById('theme-icon');
+            isDarkMode = !isDarkMode;
+            if (isDarkMode) {
+                html.classList.add('dark');
+                icon.classList.remove('fa-moon');
+                icon.classList.add('fa-sun');
+            } else {
+                html.classList.remove('dark');
+                icon.classList.remove('fa-sun');
+                icon.classList.add('fa-moon');
+            }
+        }
+
+        // --- PWA INSTALL PROMPT ---
+        let deferredPrompt;
+        window.addEventListener('beforeinstallprompt', (e) => {
+            e.preventDefault();
+            deferredPrompt = e;
+            const btnInstall = document.getElementById('btn-install');
+            if(btnInstall) btnInstall.classList.remove('hidden');
+        });
+
+        function installApp() {
+            if (deferredPrompt) {
+                deferredPrompt.prompt();
+                deferredPrompt.userChoice.then((choiceResult) => {
+                    if (choiceResult.outcome === 'accepted') {
+                        console.log('User accepted the install prompt');
+                    }
+                    deferredPrompt = null;
+                    document.getElementById('btn-install').classList.add('hidden');
+                });
+            } else {
+                Swal.fire({
+                    title: currentLang === 'id' ? 'Pasang Pintasan Aplikasi' : 'Install App Shortcut',
+                    html: currentLang === 'id' 
+                        ? 'Untuk memasang aplikasi ke layar utama HP atau PC Anda:<br><br><b>Di HP (Android/iOS):</b> Buka menu browser (titik tiga) lalu pilih <b>"Tambahkan ke Layar Utama" (Add to Home Screen)</b>.<br><br><b>Di PC (Chrome/Edge):</b> Klik ikon pasang (install) di bilah alamat URL bagian kanan atas.'
+                        : 'To install the app to your home screen or PC:<br><br><b>On Mobile:</b> Open your browser menu and select <b>"Add to Home Screen"</b>.<br><br><b>On PC:</b> Click the install icon in your browser address bar.',
+                    icon: 'info',
+                    confirmButtonColor: '#4f46e5'
+                });
+            }
+        }
+
+        // --- 1. LANGUAGE CONFIGURATION ---
+        const dictionary = {
+            id: {
+                donateBtn: "Traktir Kopi",
+                subtitle: "Multi-Peer P2P file transfer langsung via browser",
+                myIdLabel: "ID Perangkat Anda",
+                zoomHint: "Klik Zoom",
+                btnGenerate: "Ganti ID/QR",
+                btnInstall: "Pasang Aplikasi",
+                statusInit: "Menyiapkan...",
+                statusReady: "Siap Menerima",
+                statusConnected: "Multi-Peer Aktif",
+                connectLabel: "Hubungkan ke ID Tujuan",
+                btnConnect: "Konek",
+                connectedPeersTitle: "Perangkat Terhubung",
+                peerSelAll: "Semua",
+                peerDesel: "Batal",
+                peerInv: "Balik",
+                nearbyDevices: "Perangkat Tersedia",
+                rescan: "Re-Scan",
+                wifiActive: "WiFi Lokal Aktif",
+                noDevices: "Mencari perangkat di jaringan...",
+                selectFile: "Pilih Satu/Banyak File",
+                btnSend: "Kirim File",
+                sending: "Mengirim paralel...",
+                receiving: "Menerima...",
+                footerInfo: "Hubungkan ke banyak perangkat sekaligus. P2P Multi-Peer Transfer.",
+                scanTitle: "Arahkan ke QR Code",
+                scanCodeText: "Scan Kode",
+                alertSuccessTitle: "Berhasil!",
+                alertSuccessSendAll: "Semua file berhasil dikirim ke perangkat terpilih.",
+                alertSuccessReceive: "File berhasil diterima.",
+                alertErrorTitle: "Oops!",
+                alertConnFailed: "Gagal terhubung ke peer.",
+                alertFileSelect: "Pilih file terlebih dahulu!",
+                alertNoPeersSelected: "Pilih minimal satu perangkat tujuan!",
+                histTitle: "Riwayat Terkirim",
+                histClear: "Bersihkan",
+                histSelAll: "Semua",
+                histDesel: "Batal",
+                histInv: "Balikkan",
+                histDelSel: "Hapus",
+                stageTitle: "Antrean File",
+                stageSelAll: "Semua",
+                stageDesel: "Batal",
+                stageInv: "Balikkan",
+                stageDelSel: "Hapus",
+                stageClear: "Bersihkan",
+                recvTitle: "Daftar File Diterima",
+                openFolder: "Buka Folder",
+                recvClear: "Clear",
+                zoomTitle: "QR Code Perangkat",
+                zoomDesc: "Scan QR ini dari perangkat lain untuk terhubung.",
+                folderHintTitle: "Folder Download",
+                folderHintText: "File yang Anda terima tersimpan otomatis di folder Download perangkat Anda (sesuai pengaturan browser).",
+                inputPlaceholder: "Contoh : AB-13",
+                donateModalTitle: "Traktir Kopi Pengembang",
+                donateModalDesc: "Dukung pengembangan aplikasi KirimCepat agar terus gratis & bebas iklan!",
+                ewalletTitle: "Nomor E-Wallet / Transfer Bank:"
+            },
+            en: {
+                donateBtn: "Buy Coffee",
+                subtitle: "Multi-Peer P2P direct browser file transfer",
+                myIdLabel: "Your Device ID",
+                zoomHint: "Click Zoom",
+                btnGenerate: "New ID/QR",
+                btnInstall: "Install App",
+                statusInit: "Initializing...",
+                statusReady: "Ready to Connect",
+                statusConnected: "Multi-Peer Active",
+                connectLabel: "Connect to Target ID",
+                btnConnect: "Connect",
+                connectedPeersTitle: "Connected Devices",
+                peerSelAll: "All",
+                peerDesel: "None",
+                peerInv: "Invert",
+                nearbyDevices: "Available Devices",
+                rescan: "Re-Scan",
+                wifiActive: "Local WiFi Active",
+                noDevices: "Scanning network for devices...",
+                selectFile: "Select File(s)",
+                btnSend: "Send File",
+                sending: "Sending parallel...",
+                receiving: "Receiving...",
+                footerInfo: "Connect to multiple devices simultaneously. P2P Multi-Peer Transfer.",
+                scanTitle: "Point at QR Code",
+                scanCodeText: "Scan Code",
+                alertSuccessTitle: "Success!",
+                alertSuccessSendAll: "All files sent successfully to selected devices.",
+                alertSuccessReceive: "File received successfully.",
+                alertErrorTitle: "Oops!",
+                alertConnFailed: "Failed to connect to peer.",
+                alertFileSelect: "Please select a file first!",
+                alertNoPeersSelected: "Select at least one destination device!",
+                histTitle: "Sent History",
+                histClear: "Clear",
+                histSelAll: "All",
+                histDesel: "None",
+                histInv: "Invert",
+                histDelSel: "Delete",
+                stageTitle: "File Queue",
+                stageSelAll: "All",
+                stageDesel: "None",
+                stageInv: "Invert",
+                stageDelSel: "Delete",
+                stageClear: "Clear",
+                recvTitle: "Received Files",
+                openFolder: "Open Folder",
+                recvClear: "Clear",
+                zoomTitle: "Device QR Code",
+                zoomDesc: "Scan this QR from another device to connect.",
+                folderHintTitle: "Downloads Folder",
+                folderHintText: "Received files are automatically saved in your device's Downloads folder (per browser settings).",
+                inputPlaceholder: "Sample : XY-54",
+                donateModalTitle: "Buy Developer a Coffee",
+                donateModalDesc: "Support KirimCepat development to keep it free & ad-free!",
+                ewalletTitle: "E-Wallet / Bank Account Numbers:"
+            }
+        };
+
+        let currentLang = 'id';
+
+        function toggleLanguage() {
+            setLanguage(currentLang === 'id' ? 'EN' : 'id'); // fixed toggle logic below
+        }
+
+        function setLanguage(lang) {
+            currentLang = lang;
+            const t = dictionary[lang];
+            
+            document.getElementById('lang-text').innerText = lang === 'id' ? 'EN' : 'ID';
+            
+            document.getElementById('txt-donate-btn').innerText = t.donateBtn;
+            document.getElementById('txt-subtitle').innerText = t.subtitle;
+            document.getElementById('txt-my-id-label').innerText = t.myIdLabel;
+            document.getElementById('txt-zoom-hint').innerText = t.zoomHint;
+            document.getElementById('txt-btn-generate').innerText = t.btnGenerate;
+            document.getElementById('txt-btn-install').innerText = t.btnInstall;
+            document.getElementById('txt-connect-label').innerText = t.connectLabel;
+            document.getElementById('txt-btn-connect').innerText = t.btnConnect;
+            document.getElementById('txt-connected-peers-title').innerText = t.connectedPeersTitle;
+            document.getElementById('txt-peer-sel-all').innerText = t.peerSelAll;
+            document.getElementById('txt-peer-desel').innerText = t.peerDesel;
+            document.getElementById('txt-peer-inv').innerText = t.peerInv;
+            document.getElementById('txt-nearby-devices').innerText = t.nearbyDevices;
+            document.getElementById('txt-rescan').innerText = t.rescan;
+            document.getElementById('wifi-ssid-badge').innerText = t.wifiActive;
+            
+            const noDevices = document.getElementById('txt-no-devices');
+            if(noDevices) noDevices.innerText = t.noDevices;
+            
+            document.getElementById('txt-select-file').innerText = t.selectFile;
+            document.getElementById('txt-scan-code').innerText = t.scanCodeText;
+            document.getElementById('peer-id-input').placeholder = t.inputPlaceholder;
+            
+            updateSendButtonUI();
+            
+            document.getElementById('txt-scan-title').innerText = t.scanTitle;
+            document.getElementById('txt-footer-info').innerHTML = `<i class="fa-solid fa-circle-info mr-1"></i> ${t.footerInfo}`;
+            
+            document.getElementById('txt-recv-title').innerText = t.recvTitle;
+            document.getElementById('txt-open-folder').innerText = t.openFolder;
+            document.getElementById('txt-recv-clear').innerText = t.recvClear;
+
+            document.getElementById('txt-history-title').innerText = t.histTitle;
+            document.getElementById('txt-history-clear').innerText = t.histClear;
+            document.getElementById('txt-hist-sel-all').innerText = t.histSelAll;
+            document.getElementById('txt-hist-desel').innerText = t.histDesel;
+            document.getElementById('txt-hist-inv').innerText = t.histInv;
+            document.getElementById('txt-hist-del-sel').innerHTML = `<i class="fa-solid fa-xmark mr-1"></i>${t.histDelSel}`;
+
+            document.getElementById('txt-stage-title').innerText = t.stageTitle;
+            document.getElementById('txt-stage-sel-all').innerText = t.stageSelAll;
+            document.getElementById('txt-stage-desel').innerText = t.stageDesel;
+            document.getElementById('txt-stage-inv').innerText = t.stageInv;
+            document.getElementById('txt-stage-del-sel').innerHTML = `<i class="fa-solid fa-xmark mr-1"></i>${t.stageDelSel}`;
+            document.getElementById('txt-stage-clear').innerHTML = `<i class="fa-solid fa-trash mr-1"></i>${t.stageClear}`;
+
+            document.getElementById('txt-zoom-title').innerText = t.zoomTitle;
+            document.getElementById('txt-zoom-desc').innerText = t.zoomDesc;
+
+            document.getElementById('txt-donate-modal-title').innerText = t.donateModalTitle;
+            document.getElementById('txt-donate-modal-desc').innerText = t.donateModalDesc;
+            document.getElementById('txt-ewallet-title').innerText = t.ewalletTitle;
+
+            updateStatusUI();
+            renderReceivedFiles();
+            renderNearbyDevices();
+            renderConnectedPeers();
+        }
+
+        // --- DONATE MODAL FUNCTIONS ---
+        function openDonateModal() {
+            document.getElementById('modal-donate').classList.remove('hidden');
+            document.body.classList.add('modal-open');
+            
+            const qrisContainer = document.getElementById('qris-qrcode-container');
+            if (qrisContainer && qrisContainer.childElementCount === 0) {
+                new QRCode(qrisContainer, {
+                    text: "https://trakteer.id/mulyono_guru_matematika/tip",
+                    width: 160,
+                    height: 160,
+                    colorDark : "#000000",
+                    colorLight : "#ffffff",
+                    correctLevel : QRCode.CorrectLevel.M
+                });
+            }
+        }
+
+        function closeDonateModal() {
+            document.getElementById('modal-donate').classList.add('hidden');
+            document.body.classList.remove('modal-open');
+        }
+
+        function copyToClipboard(text, message) {
+            navigator.clipboard.writeText(text).then(() => {
+                Swal.fire({
+                    toast: true,
+                    position: 'top',
+                    icon: 'success',
+                    title: message,
+                    showConfirmButton: false,
+                    timer: 1500
+                });
+            });
+        }
+
+        // --- 2. MULTI-PEER WEBRTC & PEERJS SETUP ---
+        let peer = null;
+        let activeConnections = new Map(); // peerId -> DataConnection object
+        let myId = "";
+        let isMockMode = false;
+        
+        const CHUNK_SIZE = 64 * 1024;
+        let incomingFileInfo = null;
+        let incomingFileData = [];
+        let receivedBytes = 0;
+        
+        let stagedFiles = [];
+        let sentHistory = [];
+        let receivedFilesList = [];
+        let isSending = false;
+        
+        const userAgent = navigator.userAgent;
+        let deviceType = "Desktop";
+        let deviceIcon = "fa-laptop";
+        let deviceColor = "text-indigo-500 dark:text-indigo-400";
+        
+        if (/iPad|Macintosh/i.test(userAgent) && 'ontouchend' in document) {
+            deviceType = "iPad/Tablet"; deviceIcon = "fa-tablet-screen-button"; deviceColor = "text-purple-500 dark:text-purple-400";
+        } else if (/Android.*Tablet/i.test(userAgent)) {
+            deviceType = "Tablet"; deviceIcon = "fa-tablet-screen-button"; deviceColor = "text-purple-500 dark:text-purple-400";
+        } else if (/Mobile|Android|iP(hone|od)/i.test(userAgent)) {
+            deviceType = "Mobile"; deviceIcon = "fa-mobile-screen-button"; deviceColor = "text-emerald-500 dark:text-emerald-400";
+        } else if (/Macintosh/i.test(userAgent)) {
+            deviceType = "Mac"; deviceIcon = "fa-desktop"; deviceColor = "text-gray-600 dark:text-gray-300";
+        }
+
+        function generateId() {
+            const letters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+            const l1 = letters[Math.floor(Math.random() * letters.length)];
+            const l2 = letters[Math.floor(Math.random() * letters.length)];
+            const n1 = Math.floor(Math.random() * 10);
+            const n2 = Math.floor(Math.random() * 10);
+            return `${l1}${l2}-${n1}${n2}`;
+        }
+
+        function initPeer() {
+            myId = generateId();
+            document.getElementById('my-id-display').innerText = myId;
+            document.getElementById('zoom-id-display').innerText = myId;
+            generateQRCode(myId);
+            updateStatusUI('init');
+            startDiscoveryBroadcast();
+
+            window.addEventListener('error', function(e) {
+                if (e.message && (e.message.includes('WebSocket') || e.message.includes('SecurityError'))) {
+                    enableMockMode();
+                    e.preventDefault();
+                }
+            });
+
+            try {
+                peer = new Peer(myId, { debug: 2 });
+                peer.on('open', (id) => {
+                    if (!isMockMode) updateStatusUI('ready');
+                });
+                peer.on('connection', (connection) => {
+                    setupConnection(connection);
+                });
+                peer.on('error', (err) => {
+                    if (err.type === 'network' || err.type === 'server-error' || (err.message && err.message.includes('WebSocket'))) {
+                        enableMockMode();
+                        return;
+                    }
+                    if(err.type === 'peer-unavailable'){
+                         Swal.fire({ icon: 'error', title: dictionary[currentLang].alertErrorTitle, text: 'ID tidak ditemukan.', confirmButtonColor: '#4f46e5' });
+                    }
+                    if (!isMockMode) updateStatusUI('ready');
+                });
+            } catch (error) {
+                enableMockMode();
+            }
+        }
+
+        function enableMockMode() {
+            if (isMockMode) return;
+            isMockMode = true;
+            Swal.fire({
+                icon: 'info', title: 'Mode Simulasi', text: 'Koneksi diblokir pratinjau. Mode simulasi loopback aktif.', confirmButtonColor: '#4f46e5'
+            });
+            updateStatusUI('ready');
+        }
+
+        function regenerateID() {
+            if (peer) peer.destroy();
+            activeConnections.forEach(conn => conn.close());
+            activeConnections.clear();
+            
+            document.getElementById('transfer-section').classList.add('hidden');
+            document.getElementById('progress-section').classList.add('hidden');
+            
+            initPeer();
+            renderConnectedPeers();
+            Swal.fire({ toast: true, position: 'top', icon: 'success', title: 'ID Baru Dibuat!', showConfirmButton: false, timer: 1500 });
+        }
+
+        // --- 3. AUTO DISCOVERY ---
+        let discoveryChannel;
+        let discoveredDevices = new Map();
+
+        function startDiscoveryBroadcast() {
+            if (window.BroadcastChannel) {
+                if(discoveryChannel) discoveryChannel.close();
+                discoveryChannel = new BroadcastChannel('kirimcepat-discovery');
+                
+                discoveryChannel.onmessage = (event) => {
+                    const data = event.data;
+                    if (data.id === myId) return;
+                    if (data.type === 'hello') {
+                        addDeviceToList(data.id, data.icon, data.color);
+                        discoveryChannel.postMessage({ type: 'iamhere', id: myId, icon: deviceIcon, color: deviceColor });
+                    } else if (data.type === 'iamhere') {
+                        addDeviceToList(data.id, data.icon, data.color);
+                    } else if (data.type === 'bye') {
+                        removeDeviceFromList(data.id);
+                    }
+                };
+                setTimeout(() => { discoveryChannel.postMessage({ type: 'hello', id: myId, icon: deviceIcon, color: deviceColor }); }, 500);
+                window.addEventListener('beforeunload', () => { discoveryChannel.postMessage({ type: 'bye', id: myId }); });
+            }
+        }
+
+        function rescanDevices(manual = false) {
+            discoveredDevices.clear();
+            renderNearbyDevices();
+            
+            const btn = document.getElementById('btn-rescan');
+            if(btn && manual) {
+                const icon = btn.querySelector('i');
+                if(icon) icon.className = "fa-solid fa-spinner fa-spin text-[9px]";
+                setTimeout(() => { 
+                    if(icon) icon.className = "fa-solid fa-rotate-right text-[9px]"; 
+                }, 1000);
+            }
+            if (discoveryChannel) discoveryChannel.postMessage({ type: 'hello', id: myId, icon: deviceIcon, color: deviceColor });
+        }
+
+        function addDeviceToList(id, icon, color) {
+            icon = icon || "fa-mobile-screen-button";
+            color = color || "text-indigo-500 dark:text-indigo-400";
+            discoveredDevices.set(id, {icon: icon, color: color});
+            renderNearbyDevices();
+        }
+
+        function removeDeviceFromList(id) {
+            discoveredDevices.delete(id);
+            renderNearbyDevices();
+        }
+
+        function renderNearbyDevices() {
+            const listDiv = document.getElementById('nearby-list');
+            listDiv.innerHTML = '';
+            if (discoveredDevices.size === 0) {
+                listDiv.innerHTML = `<p id="txt-no-devices" class="text-xs text-gray-400 dark:text-gray-500 italic text-center py-2">${dictionary[currentLang].noDevices}</p>`;
+                return;
+            }
+            const connectText = currentLang === 'en' ? 'Connect' : 'Konek';
+            discoveredDevices.forEach((dev, deviceId) => {
+                if (activeConnections.has(deviceId)) return; // Jangan tampilkan jika sudah terhubung
+                const item = document.createElement('div');
+                item.className = 'flex justify-between items-center bg-white dark:bg-gray-700 p-2 rounded-lg border border-gray-200 dark:border-gray-600 shadow-sm animate-fade-in';
+                item.innerHTML = `
+                    <div class="flex items-center gap-2">
+                        <i class="fa-solid ${dev.icon} ${dev.color}"></i>
+                        <span class="font-bold text-gray-700 dark:text-gray-200 tracking-wider text-sm">${deviceId}</span>
+                    </div>
+                    <button onclick="autoConnect('${deviceId}')" class="text-[10px] sm:text-xs bg-indigo-100 dark:bg-indigo-900 hover:bg-indigo-200 dark:hover:bg-indigo-800 text-indigo-700 dark:text-indigo-300 px-2 py-1 rounded transition font-semibold">${connectText}</button>
+                `;
+                listDiv.appendChild(item);
+            });
+        }
+
+        function autoConnect(targetId) {
+            document.getElementById('peer-id-input').value = targetId;
+            connectToPeer();
+        }
+
+        // --- 4. QR CODE & ZOOM POPUP ---
+        let html5QrcodeScanner = null;
+
+        function generateQRCode(text) {
+            const container = document.getElementById("qrcode-container");
+            container.innerHTML = ""; 
+            new QRCode(container, {
+                text: text, width: 80, height: 80, colorDark : "#000000", colorLight : "#ffffff", correctLevel : QRCode.CorrectLevel.M
+            });
+
+            const zoomContainer = document.getElementById("zoomed-qrcode-container");
+            zoomContainer.innerHTML = "";
+            new QRCode(zoomContainer, {
+                text: text, width: 360, height: 360, colorDark : "#000000", colorLight : "#ffffff", correctLevel : QRCode.CorrectLevel.H
+            });
+        }
+
+        function openZoomQR() {
+            document.getElementById('modal-zoom-qr').classList.remove('hidden');
+            document.body.classList.add('modal-open');
+        }
+
+        function closeZoomQR() {
+            document.getElementById('modal-zoom-qr').classList.add('hidden');
+            document.body.classList.remove('modal-open');
+        }
+
+        function openScannerModal() {
+            document.getElementById('modal-scanner').classList.remove('hidden');
+            document.body.classList.add('modal-open');
+            if(!html5QrcodeScanner) html5QrcodeScanner = new Html5Qrcode("reader");
+            html5QrcodeScanner.start(
+                { facingMode: "environment" }, { fps: 10, qrbox: { width: 200, height: 200 } },
+                (decodedText) => {
+                    document.getElementById('peer-id-input').value = decodedText;
+                    closeScannerModal();
+                    Swal.fire({ toast: true, position: 'top', icon: 'success', title: 'QR Terbaca', showConfirmButton: false, timer: 1000 });
+                    connectToPeer();
+                }, (err) => {}
+            ).catch(err => {
+                closeScannerModal();
+                Swal.fire('Error', 'Kamera tidak dapat diakses.', 'error');
+            });
+        }
+
+        function closeScannerModal() {
+            document.getElementById('modal-scanner').classList.add('hidden');
+            document.body.classList.remove('modal-open');
+            if (html5QrcodeScanner && html5QrcodeScanner.isScanning) {
+                html5QrcodeScanner.stop().catch(err => console.error(err));
+            }
+        }
+
+        // --- 5. MULTI-PEER CONNECTION MANAGEMENT ---
+        function connectToPeer() {
+            const targetId = document.getElementById('peer-id-input').value.trim().toUpperCase();
+            if (!targetId || targetId === myId) return;
+            if (activeConnections.has(targetId)) {
+                Swal.fire({ toast: true, position: 'top', icon: 'info', title: 'Sudah terhubung ke perangkat ini', showConfirmButton: false, timer: 2000 });
+                return;
+            }
+
+            updateStatusUI('connecting');
+            if (isMockMode) {
+                setTimeout(() => {
+                    const mockConn = {
+                        peer: targetId, open: true, dataChannel: { bufferedAmount: 0 },
+                        send: function(data) { setTimeout(() => handleIncomingData(data), 20); },
+                        close: function() { this.open = false; handlePeerDisconnection(targetId); }
+                    };
+                    activeConnections.set(targetId, mockConn);
+                    onPeerConnected(targetId);
+                }, 800);
+                return;
+            }
+            
+            const connection = peer.connect(targetId, { reliable: true });
+            setupConnection(connection);
+        }
+
+        function setupConnection(connection) {
+            connection.on('open', () => {
+                activeConnections.set(connection.peer, connection);
+                onPeerConnected(connection.peer);
+            });
+            connection.on('data', (data) => handleIncomingData(data));
+            connection.on('close', () => handlePeerDisconnection(connection.peer));
+            connection.on('error', (err) => handlePeerDisconnection(connection.peer));
+        }
+
+        function onPeerConnected(peerId) {
+            updateStatusUI('connected');
+            document.getElementById('peer-id-input').value = "";
+            document.getElementById('transfer-section').classList.remove('hidden');
+            renderConnectedPeers();
+            renderNearbyDevices();
+            Swal.fire({ toast: true, position: 'top-end', icon: 'success', title: `Terhubung ke ${peerId}`, showConfirmButton: false, timer: 2000 });
+        }
+
+        function disconnectPeer(peerId) {
+            const conn = activeConnections.get(peerId);
+            if (conn) conn.close();
+            handlePeerDisconnection(peerId);
+        }
+
+        function handlePeerDisconnection(peerId) {
+            activeConnections.delete(peerId);
+            if (activeConnections.size === 0) {
+                updateStatusUI('ready');
+                document.getElementById('transfer-section').classList.add('hidden');
+                document.getElementById('progress-section').classList.add('hidden');
+            }
+            renderConnectedPeers();
+            renderNearbyDevices();
+            Swal.fire({ toast: true, position: 'top-end', icon: 'info', title: `Terputus dari ${peerId}`, showConfirmButton: false, timer: 2000 });
+        }
+
+        function renderConnectedPeers() {
+            const listDiv = document.getElementById('connected-peers-list');
+            const countSpan = document.getElementById('connected-count');
+            listDiv.innerHTML = '';
+            countSpan.innerText = activeConnections.size;
+
+            if (activeConnections.size === 0) {
+                document.getElementById('transfer-section').classList.add('hidden');
+                return;
+            }
+
+            document.getElementById('transfer-section').classList.remove('hidden');
+
+            activeConnections.forEach((conn, peerId) => {
+                const item = document.createElement('div');
+                item.className = 'flex justify-between items-center bg-white dark:bg-gray-800 p-2 rounded-lg border border-green-200 dark:border-green-800 shadow-sm animate-fade-in';
+                item.innerHTML = `
+                    <div class="flex items-center gap-2 overflow-hidden w-full cursor-pointer" onclick="togglePeerCheckbox('${peerId}')">
+                        <input type="checkbox" id="peercb_${peerId}" class="peer-cb w-4 h-4 text-green-600 rounded bg-gray-100 border-gray-300 dark:bg-gray-700 dark:border-gray-600" value="${peerId}" checked onchange="updateSendButtonUI()">
+                        <div class="flex items-center gap-1.5 truncate">
+                            <i class="fa-solid fa-laptop text-green-600"></i>
+                            <span class="font-bold text-gray-700 dark:text-gray-200 tracking-wider text-xs sm:text-sm">${peerId}</span>
+                        </div>
+                    </div>
+                    <button onclick="disconnectPeer('${peerId}')" class="text-[10px] bg-red-100 dark:bg-red-900/50 hover:bg-red-200 text-red-600 dark:text-red-400 px-2 py-1 rounded transition font-semibold flex items-center gap-1 flex-shrink-0">
+                        <i class="fa-solid fa-power-off"></i> <span id="txt-btn-disconnect">Putus</span>
+                    </button>
+                `;
+                listDiv.appendChild(item);
+            });
+            updateSendButtonUI();
+        }
+
+        function togglePeerCheckbox(peerId) {
+            const cb = document.getElementById('peercb_' + peerId);
+            if(cb) {
+                cb.checked = !cb.checked;
+                updateSendButtonUI();
+            }
+        }
+
+        function getCheckedPeerIds() {
+            return Array.from(document.querySelectorAll('.peer-cb:checked')).map(cb => cb.value);
+        }
+
+        function peerSelectAll() { document.querySelectorAll('.peer-cb').forEach(cb => cb.checked = true); updateSendButtonUI(); }
+        function peerDeselectAll() { document.querySelectorAll('.peer-cb').forEach(cb => cb.checked = false); updateSendButtonUI(); }
+        function peerInvert() { document.querySelectorAll('.peer-cb').forEach(cb => cb.checked = !cb.checked); updateSendButtonUI(); }
+
+        function updateStatusUI(state) {
+            if(!state && activeConnections.size > 0) state = 'connected';
+            else if (!state) state = 'ready';
+
+            const txtStatus = document.getElementById('txt-status');
+            const statusDot = document.getElementById('status-dot');
+            const statusPing = document.getElementById('status-ping');
+
+            if (state === 'init' || state === 'connecting') {
+                txtStatus.innerText = dictionary[currentLang].statusInit;
+                statusDot.className = "relative inline-flex rounded-full h-2.5 w-2.5 bg-yellow-500";
+                statusPing.className = "animate-ping absolute inline-flex h-full w-full rounded-full bg-yellow-400 opacity-75";
+                statusPing.style.display = "block";
+                txtStatus.className = "text-yellow-600 dark:text-yellow-400";
+            } else if (state === 'ready') {
+                txtStatus.innerText = dictionary[currentLang].statusReady;
+                statusDot.className = "relative inline-flex rounded-full h-2.5 w-2.5 bg-green-500";
+                statusPing.className = "animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75";
+                statusPing.style.display = "block";
+                txtStatus.className = "text-green-600 dark:text-green-400";
+            } else if (state === 'connected') {
+                txtStatus.innerText = dictionary[currentLang].statusConnected;
+                statusDot.className = "relative inline-flex rounded-full h-2.5 w-2.5 bg-blue-500";
+                statusPing.style.display = "none";
+                txtStatus.className = "text-blue-600 dark:text-blue-400";
+            }
+        }
+
+        function copyMyId() {
+            navigator.clipboard.writeText(myId).then(() => { Swal.fire({ toast: true, position: 'top', icon: 'success', title: 'ID disalin!', showConfirmButton: false, timer: 1500 }); });
+        }
+
+        function formatBytes(bytes, decimals = 2) {
+            if (bytes === 0) return '0 Bytes';
+            const k = 1024;
+            const dm = decimals < 0 ? 0 : decimals;
+            const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB'];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            return parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + ' ' + sizes[i];
+        }
+
+        // --- 6. FILE STAGING ---
+        function handleFileSelect(event) {
+            const files = Array.from(event.target.files);
+            if (files.length > 0) {
+                files.forEach(f => {
+                    stagedFiles.push({ id: 'stage_' + Date.now() + '_' + Math.floor(Math.random() * 1000), file: f });
+                });
+                renderStaging();
+                stageSelectAll();
+            }
+            document.getElementById('file-input').value = ""; 
+        }
+
+        function renderStaging() {
+            const sec = document.getElementById('staging-section');
+            const list = document.getElementById('staging-list');
+            list.innerHTML = '';
+            
+            if (stagedFiles.length === 0) {
+                sec.classList.add('hidden');
+                updateSendButtonUI();
+                return;
+            }
+            
+            sec.classList.remove('hidden');
+            
+            stagedFiles.forEach(item => {
+                const div = document.createElement('div');
+                div.className = 'flex items-center justify-between bg-white dark:bg-gray-800 p-2 rounded-lg border border-gray-200 dark:border-gray-700 shadow-sm animate-fade-in';
+                div.innerHTML = `
+                    <div class="flex items-center gap-2 overflow-hidden w-full cursor-pointer" onclick="toggleStageCheckbox('${item.id}')">
+                        <input type="checkbox" id="cb_${item.id}" class="stage-cb w-4 h-4 text-indigo-600 rounded bg-gray-100 border-gray-300 dark:bg-gray-700 dark:border-gray-600" value="${item.id}" onchange="updateSendButtonUI()">
+                        <div class="flex flex-col truncate">
+                            <span class="text-xs sm:text-sm font-semibold text-gray-700 dark:text-gray-200 truncate" title="${item.file.name}">${item.file.name}</span>
+                            <span class="text-[10px] text-gray-500">${formatBytes(item.file.size)}</span>
+                        </div>
+                    </div>
+                `;
+                list.appendChild(div);
+            });
+            updateSendButtonUI();
+        }
+
+        function toggleStageCheckbox(id) {
+            const cb = document.getElementById('cb_' + id);
+            if(cb) {
+                cb.checked = !cb.checked;
+                updateSendButtonUI();
+            }
+        }
+
+        function updateSendButtonUI() {
+            const btnSend = document.getElementById('btn-send');
+            const textMain = document.getElementById('txt-btn-send-main');
+            const textSize = document.getElementById('txt-btn-send-size');
+            
+            if (!btnSend) return;
+
+            const checkedFiles = getCheckedStageIds();
+            const checkedPeers = getCheckedPeerIds();
+
+            if (checkedFiles.length === 0 || checkedPeers.length === 0 || isSending) {
+                btnSend.disabled = true;
+                textMain.innerText = `${dictionary[currentLang].btnSend} (0) ke (0)`;
+                textSize.innerText = "0 Bytes";
+            } else {
+                btnSend.disabled = false;
+                let totalSize = 0;
+                checkedFiles.forEach(id => {
+                    const item = stagedFiles.find(i => i.id === id);
+                    if(item) totalSize += item.file.size;
+                });
+                textMain.innerText = `${dictionary[currentLang].btnSend} (${checkedFiles.length}) ke (${checkedPeers.length}) Perangkat`;
+                textSize.innerText = formatBytes(totalSize * checkedPeers.length);
+            }
+        }
+
+        function getCheckedStageIds() { return Array.from(document.querySelectorAll('.stage-cb:checked')).map(cb => cb.value); }
+        function stageSelectAll() { document.querySelectorAll('.stage-cb').forEach(cb => cb.checked = true); updateSendButtonUI(); }
+        function stageDeselectAll() { document.querySelectorAll('.stage-cb').forEach(cb => cb.checked = false); updateSendButtonUI(); }
+        function stageInvert() { document.querySelectorAll('.stage-cb').forEach(cb => cb.checked = !cb.checked); updateSendButtonUI(); }
+        function stageDeleteSelected() {
+            const checked = getCheckedStageIds();
+            if(checked.length === 0) return;
+            stagedFiles = stagedFiles.filter(i => !checked.includes(i.id));
+            renderStaging();
+        }
+        function stageClearAll() { stagedFiles = []; renderStaging(); }
+        
+        function lockScrollToTransfer() {
+            const card = document.getElementById('main-card');
+            card.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            document.body.style.overflow = 'hidden';
+        }
+        
+        function unlockScroll() {
+            document.body.style.overflow = '';
+        }
+
+        // --- 7. PARALLEL TRANSFER PROCESS ---
+        async function sendSelectedStagedFiles() {
+            const checkedFileIds = getCheckedStageIds();
+            const checkedPeerIds = getCheckedPeerIds();
+            
+            if (checkedFileIds.length === 0 || isSending) return;
+            if (checkedPeerIds.length === 0) {
+                Swal.fire('Info', dictionary[currentLang].alertNoPeersSelected, 'warning');
+                return;
+            }
+            
+            const filesToSend = [];
+            checkedFileIds.forEach(id => {
+                const item = stagedFiles.find(i => i.id === id);
+                if (item) filesToSend.push(item.file);
+            });
+            
+            stagedFiles = stagedFiles.filter(i => !checkedFileIds.includes(i.id));
+            renderStaging();
+            
+            lockScrollToTransfer();
+            isSending = true;
+            updateSendButtonUI();
+            
+            const progSection = document.getElementById('progress-section');
+            progSection.classList.remove('hidden');
+            document.getElementById('btn-send').disabled = true;
+            document.getElementById('file-input').disabled = true;
+
+            try {
+                // Distribusi paralel ke setiap target peer yang dicentang secara bersamaan (Promise.all)
+                const transferPromises = checkedPeerIds.map(async (peerId) => {
+                    const conn = activeConnections.get(peerId);
+                    if (!conn || !conn.open) return;
+
+                    for (const file of filesToSend) {
+                        await sendFileToPeerConnection(conn, file);
+                    }
+                });
+
+                await Promise.all(transferPromises);
+
+                filesToSend.forEach(f => addToHistory(f));
+                playSuccessSound();
+                Swal.fire({ 
+                    toast: true, position: 'top-end', icon: 'success', 
+                    title: dictionary[currentLang].alertSuccessSendAll,
+                    showConfirmButton: false, timer: 3000 
+                });
+
+            } catch (err) {
+                console.error("Parallel Transfer Error", err);
+                Swal.fire('Error', 'Transfer gagal: ' + err.message, 'error');
+            } finally {
+                isSending = false;
+                unlockScroll();
+                updateSendButtonUI();
+                document.getElementById('file-input').disabled = false;
+                setTimeout(() => {
+                    document.getElementById('progress-section').classList.add('hidden');
+                }, 1500);
+            }
+        }
+
+        async function sendFileToPeerConnection(conn, file) {
+            const totalChunks = Math.ceil(file.size / CHUNK_SIZE);
+            document.getElementById('progress-status-text').innerText = `${dictionary[currentLang].sending} ${file.name} (${conn.peer})`;
+            updateProgress(0);
+
+            conn.send({ type: 'metadata', name: file.name, size: file.size, mime: file.type, totalChunks: totalChunks });
+
+            let offset = 0;
+            for (let i = 0; i < totalChunks; i++) {
+                const chunk = file.slice(offset, offset + CHUNK_SIZE);
+                const arrayBuffer = await chunk.arrayBuffer();
+                conn.send({ type: 'chunk', data: arrayBuffer, index: i });
+                offset += CHUNK_SIZE;
+                updateProgress(((i + 1) / totalChunks) * 100);
+
+                while (conn.dataChannel && conn.dataChannel.bufferedAmount > 2 * 1024 * 1024) {
+                    await new Promise(resolve => setTimeout(resolve, 50));
+                }
+            }
+            conn.send({ type: 'eof' });
+        }
+
+        function handleIncomingData(message) {
+            if (message.type === 'metadata') {
+                incomingFileInfo = message;
+                incomingFileData = new Array(message.totalChunks);
+                receivedBytes = 0;
+                const progSection = document.getElementById('progress-section');
+                progSection.classList.remove('hidden');
+                document.getElementById('progress-status-text').innerText = dictionary[currentLang].receiving + ` ${message.name}`;
+                updateProgress(0);
+                lockScrollToTransfer();
+
+            } else if (message.type === 'chunk') {
+                incomingFileData[message.index] = message.data;
+                receivedBytes += message.data.byteLength;
+                updateProgress((receivedBytes / incomingFileInfo.size) * 100);
+
+            } else if (message.type === 'eof') {
+                const blob = new Blob(incomingFileData, { type: incomingFileInfo.mime });
+                const downloadUrl = URL.createObjectURL(blob);
+                
+                addReceivedFile({
+                    name: incomingFileInfo.name,
+                    size: incomingFileInfo.size,
+                    url: downloadUrl,
+                    type: incomingFileInfo.mime
+                });
+
+                const a = document.createElement('a');
+                a.href = downloadUrl;
+                a.download = incomingFileInfo.name;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+
+                playSuccessSound();
+                Swal.fire({ 
+                    toast: true, position: 'top-end', icon: 'success', 
+                    title: dictionary[currentLang].alertSuccessReceive,
+                    text: incomingFileInfo.name,
+                    showConfirmButton: false, timer: 3000 
+                });
+
+                setTimeout(() => {
+                    document.getElementById('progress-section').classList.add('hidden');
+                    unlockScroll();
+                }, 2000);
+                
+                incomingFileInfo = null;
+                incomingFileData = [];
+            }
+        }
+
+        function updateProgress(percent) {
+            const p = Math.min(100, Math.max(0, percent)).toFixed(0);
+            document.getElementById('progress-bar').style.width = p + '%';
+            document.getElementById('progress-percent').innerText = p + '%';
+        }
+
+        // --- 8. RECEIVED FILES MANAGEMENT ---
+        function addReceivedFile(fileObj) {
+            const id = 'recv_' + Date.now() + '_' + Math.floor(Math.random() * 1000);
+            receivedFilesList.push({ id: id, ...fileObj });
+            renderReceivedFiles();
+        }
+
+        function renderReceivedFiles() {
+            const container = document.getElementById('received-container');
+            const listDiv = document.getElementById('received-list');
+            listDiv.innerHTML = '';
+
+            if (receivedFilesList.length === 0) {
+                container.classList.add('hidden');
+                return;
+            }
+
+            container.classList.remove('hidden');
+
+            [...receivedFilesList].reverse().forEach(item => {
+                const div = document.createElement('div');
+                div.className = 'flex items-center justify-between bg-white dark:bg-gray-800 p-2.5 rounded-xl border border-emerald-500/30 shadow-sm animate-fade-in';
+                div.innerHTML = `
+                    <div class="flex items-center gap-2 overflow-hidden w-full pr-2">
+                        <i class="fa-solid fa-file-arrow-down text-emerald-500 text-lg flex-shrink-0"></i>
+                        <div class="flex flex-col truncate w-full">
+                            <span class="text-xs sm:text-sm font-semibold text-gray-700 dark:text-gray-200 truncate" title="${item.name}">${item.name}</span>
+                            <span class="text-[10px] text-gray-500">${formatBytes(item.size)}</span>
+                        </div>
+                    </div>
+                    <div class="flex items-center gap-1.5 flex-shrink-0">
+                        <a href="${item.url}" download="${item.name}" class="p-2 bg-emerald-500 hover:bg-emerald-600 text-white text-xs font-semibold rounded-lg transition shadow-sm flex items-center justify-center" title="Download / Unduh">
+                            <i class="fa-solid fa-download text-sm"></i>
+                        </a>
+                        <button onclick="deleteReceivedFile('${item.id}')" class="text-red-400 hover:text-red-600 p-1.5 transition" title="Hapus">
+                            <i class="fa-solid fa-trash"></i>
+                        </button>
+                    </div>
+                `;
+                listDiv.appendChild(div);
+            });
+        }
+
+        function clearReceivedFiles() {
+            receivedFilesList = [];
+            renderReceivedFiles();
+        }
+
+        function deleteReceivedFile(id) {
+            receivedFilesList = receivedFilesList.filter(item => item.id !== id);
+            renderReceivedFiles();
+        }
+
+        function openDownloadsFolderHint() {
+            Swal.fire({
+                title: dictionary[currentLang].folderHintTitle,
+                text: dictionary[currentLang].folderHintText,
+                icon: 'info',
+                confirmButtonColor: '#4f46e5'
+            });
+        }
+
+        // --- 9. SENT HISTORY MANAGEMENT ---
+        function addToHistory(file) {
+            const id = 'hist_' + Date.now() + '_' + Math.floor(Math.random() * 1000);
+            sentHistory.push({ id: id, file: file, name: file.name, size: file.size });
+            renderHistory();
+        }
+
+        function renderHistory() {
+            const historyContainer = document.getElementById('history-container');
+            const listDiv = document.getElementById('history-list');
+            listDiv.innerHTML = '';
+            
+            if (sentHistory.length === 0) {
+                historyContainer.classList.add('hidden');
+                return;
+            }
+            
+            historyContainer.classList.remove('hidden');
+            
+            [...sentHistory].reverse().forEach(item => {
+                const div = document.createElement('div');
+                div.className = 'flex items-center justify-between bg-white dark:bg-gray-800 p-2 rounded-lg border border-gray-200 dark:border-gray-700 shadow-sm animate-fade-in';
+                div.innerHTML = `
+                    <div class="flex items-center gap-2 overflow-hidden w-full cursor-pointer" onclick="toggleHistCheckbox('${item.id}')">
+                        <input type="checkbox" id="hc_${item.id}" class="hist-cb w-4 h-4 text-indigo-600 rounded bg-gray-100 border-gray-300 dark:bg-gray-700 dark:border-gray-600" value="${item.id}">
+                        <div class="flex flex-col truncate">
+                            <span class="text-xs sm:text-sm font-semibold text-gray-700 dark:text-gray-200 truncate" title="${item.name}">${item.name}</span>
+                            <span class="text-[10px] text-gray-500">${formatBytes(item.size)}</span>
+                        </div>
+                    </div>
+                    <div class="flex items-center gap-1 flex-shrink-0">
+                        <button onclick="historySendSingle('${item.id}')" class="text-indigo-500 hover:text-indigo-700 dark:text-indigo-400 dark:hover:text-indigo-300 p-1.5 transition" title="Kirim Ulang">
+                            <i class="fa-solid fa-paper-plane"></i>
+                        </button>
+                        <button onclick="historyDeleteSingle('${item.id}')" class="text-red-400 hover:text-red-600 p-1.5 transition" title="Hapus">
+                            <i class="fa-solid fa-trash"></i>
+                        </button>
+                    </div>
+                `;
+                listDiv.appendChild(div);
+            });
+        }
+        
+        function toggleHistCheckbox(id){
+            const cb = document.getElementById('hc_'+id);
+            if(cb) cb.checked = !cb.checked;
+        }
+
+        function clearHistory() { sentHistory = []; renderHistory(); }
+        function historyDeleteSingle(id) { sentHistory = sentHistory.filter(item => item.id !== id); renderHistory(); }
+        function historySendSingle(id) {
+            const item = sentHistory.find(i => i.id === id);
+            if (item) { 
+                stagedFiles.push({ id: 'stage_' + Date.now(), file: item.file });
+                renderStaging();
+                stageSelectAll();
+                document.getElementById('main-card').scrollIntoView({ behavior: 'smooth', block: 'start' });
+            }
+        }
+        function getCheckedHistoryIds() { return Array.from(document.querySelectorAll('.hist-cb:checked')).map(cb => cb.value); }
+        function historySelectAll() { document.querySelectorAll('.hist-cb').forEach(cb => cb.checked = true); }
+        function historyDeselectAll() { document.querySelectorAll('.hist-cb').forEach(cb => cb.checked = false); }
+        function historyInvert() { document.querySelectorAll('.hist-cb').forEach(cb => cb.checked = !cb.checked); }
+        function historyDeleteSelected() {
+            const ids = getCheckedHistoryIds();
+            if(ids.length === 0) return;
+            sentHistory = sentHistory.filter(item => !ids.includes(item.id));
+            renderHistory();
+        }
+
+        // --- 10. AUDIO ---
+        function playSuccessSound() {
+            try {
+                const ctx = new (window.AudioContext || window.webkitAudioContext)();
+                const osc = ctx.createOscillator();
+                const gain = ctx.createGain();
+                osc.connect(gain);
+                gain.connect(ctx.destination);
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(880, ctx.currentTime);
+                osc.frequency.exponentialRampToValueAtTime(1760, ctx.currentTime + 0.1);
+                gain.gain.setValueAtTime(0, ctx.currentTime);
+                gain.gain.linearRampToValueAtTime(0.5, ctx.currentTime + 0.05);
+                gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.5);
+                osc.start(ctx.currentTime);
+                osc.stop(ctx.currentTime + 0.5);
+            } catch (e) {}
+        }
+
+        // --- INIT ---
+        window.onload = () => {
+            setLanguage('id'); 
+            initPeer();
+        };
+
+    </script>
+</body>
+</html>
