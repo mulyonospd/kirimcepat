@@ -254,20 +254,35 @@
                 <div id="staging-list" class="flex flex-col gap-1.5 max-h-[15rem] overflow-y-auto pr-1 pb-1"></div>
             </div>
 
-            <button id="btn-send" onclick="sendSelectedStagedFiles()" disabled class="w-full bg-gradient-to-r from-pink-500 to-pink-600 hover:from-pink-600 hover:to-pink-700 text-white font-bold py-3 sm:py-4 rounded-xl shadow-md shadow-pink-200 dark:shadow-none transition-all disabled:opacity-50 disabled:cursor-not-allowed flex justify-center items-center gap-2 text-sm sm:text-lg">
-                <i class="fa-regular fa-paper-plane"></i> 
-                <div class="flex flex-col items-center leading-tight">
-                    <span id="txt-btn-send-main">Kirim File (0) ke (0) Perangkat</span>
-                    <span id="txt-btn-send-size" class="text-[10px] font-normal text-pink-100">0 Bytes</span>
-                </div>
-            </button>
+            <div class="flex gap-2 w-full">
+                <button id="btn-send" onclick="sendSelectedStagedFiles()" disabled class="flex-grow bg-gradient-to-r from-pink-500 to-pink-600 hover:from-pink-600 hover:to-pink-700 text-white font-bold py-3 sm:py-4 rounded-xl shadow-md shadow-pink-200 dark:shadow-none transition-all disabled:opacity-50 disabled:cursor-not-allowed flex justify-center items-center gap-2 text-sm sm:text-lg">
+                    <i class="fa-regular fa-paper-plane"></i> 
+                    <div class="flex flex-col items-center leading-tight">
+                        <span id="txt-btn-send-main">Kirim File (0) ke (0) Perangkat</span>
+                        <span id="txt-btn-send-size" class="text-[10px] font-normal text-pink-100">0 Bytes</span>
+                    </div>
+                </button>
+                
+                <button id="btn-pause" onclick="togglePauseTransfer()" class="hidden w-16 sm:w-20 bg-amber-500 hover:bg-amber-600 text-white font-bold rounded-xl shadow-md transition-all flex flex-col justify-center items-center gap-1 flex-shrink-0">
+                    <i class="fa-solid fa-pause text-lg"></i>
+                    <span class="text-[10px]" id="txt-btn-pause">Pause</span>
+                </button>
+                
+                <button id="btn-stop" onclick="stopTransfer()" class="hidden w-16 sm:w-20 bg-red-500 hover:bg-red-600 text-white font-bold rounded-xl shadow-md transition-all flex flex-col justify-center items-center gap-1 flex-shrink-0">
+                    <i class="fa-solid fa-stop text-lg"></i>
+                    <span class="text-[10px]" id="txt-btn-stop">Stop</span>
+                </button>
+            </div>
         </div>
 
         <!-- Progress Bar -->
         <div id="progress-section" class="hidden animate-fade-in mt-3 relative z-20">
-            <div class="flex justify-between text-[10px] sm:text-xs font-semibold text-gray-600 dark:text-gray-300 mb-1">
+            <div class="flex justify-between items-end text-[10px] sm:text-xs font-semibold text-gray-600 dark:text-gray-300 mb-1">
                 <span id="progress-status-text" class="truncate pr-2">Mengirim paralel...</span>
-                <span id="progress-percent">0%</span>
+                <div class="flex items-center gap-2 flex-shrink-0">
+                    <span id="progress-speed" class="text-indigo-600 dark:text-indigo-400 font-mono bg-indigo-50 dark:bg-indigo-900/50 px-1.5 py-0.5 rounded border border-indigo-100 dark:border-indigo-800">0 B/s</span>
+                    <span id="progress-percent">0%</span>
+                </div>
             </div>
             <div class="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2 overflow-hidden">
                 <div id="progress-bar" class="bg-gradient-to-r from-indigo-500 to-pink-500 h-2 rounded-full transition-all duration-200" style="width: 0%"></div>
@@ -369,10 +384,21 @@
             <h3 class="text-xl sm:text-2xl font-bold mb-1 text-gray-800 dark:text-white" id="txt-donate-modal-title">Traktir Kopi Pengembang</h3>
             <p class="text-xs sm:text-sm text-gray-500 dark:text-gray-400 mb-4" id="txt-donate-modal-desc">Dukung pengembangan aplikasi KirimCepat agar terus gratis & bebas iklan!</p>
             
-            <!-- QRIS Image Box -->
-            <div class="bg-white p-3 rounded-2xl shadow-md border-2 border-amber-200 dark:border-amber-900 mb-4 inline-block">
-                <div id="qris-qrcode-container" class="flex justify-center items-center p-2"></div>
-                <span class="block text-[11px] font-bold text-gray-700 dark:text-gray-300 mt-2">QRIS All Payment (Gopay, OVO, Dana, BCA, QRIS)</span>
+            <!-- Info Donasi Source Code -->
+            <div class="w-full bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 p-2 rounded-xl text-xs sm:text-sm font-semibold mb-4 border border-indigo-200 dark:border-indigo-800" id="txt-donate-bonus">
+                💡 Donasi minimal Rp 50.000 Gratis Source Code
+            </div>
+            
+            <!-- QRIS Image Box (Gopay / Ovo / Pulsa) -->
+            <div class="bg-white p-3 rounded-2xl shadow-md border-2 border-amber-200 dark:border-amber-900 mb-4 inline-block relative group">
+                <div id="qris-qrcode-container" class="flex justify-center items-center p-2 cursor-pointer" onclick="copyToClipboard('085214596325', 'Nomor Donasi disalin!')"></div>
+                <div class="absolute inset-0 bg-black/60 rounded-xl flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer" onclick="copyToClipboard('085214596325', 'Nomor Donasi disalin!')">
+                    <span class="text-white font-bold flex flex-col items-center gap-1">
+                        <i class="fa-solid fa-copy text-2xl"></i>
+                        <span>Copy Nomor</span>
+                    </span>
+                </div>
+                <span class="block text-[11px] font-bold text-gray-700 dark:text-gray-300 mt-2">QR Gopay / Ovo / Pulsa (085214596325)</span>
             </div>
 
             <!-- E-Wallet / Bank Numbers -->
@@ -383,19 +409,10 @@
                 <div class="flex flex-col gap-2">
                     <div class="flex justify-between items-center bg-white dark:bg-gray-800 p-2 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm">
                         <div>
-                            <span class="text-[10px] text-gray-400 block font-semibold uppercase">DANA / OVO / GOPAY</span>
-                            <span class="font-mono font-bold text-gray-800 dark:text-white text-sm">0812-3456-7890</span>
+                            <span class="text-[10px] text-gray-400 block font-semibold uppercase">Gopay / OVO / Pulsa</span>
+                            <span class="font-mono font-bold text-gray-800 dark:text-white text-sm">0852-1459-6325</span>
                         </div>
-                        <button onclick="copyToClipboard('081234567890', 'Nomor E-Wallet disalin!')" class="text-xs bg-indigo-100 dark:bg-indigo-900 text-indigo-700 dark:text-indigo-300 px-2.5 py-1.5 rounded-lg font-semibold hover:bg-indigo-200 transition">
-                            <i class="fa-regular fa-copy mr-1"></i> Salin
-                        </button>
-                    </div>
-                    <div class="flex justify-between items-center bg-white dark:bg-gray-800 p-2 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm">
-                        <div>
-                            <span class="text-[10px] text-gray-400 block font-semibold uppercase">BCA (A.N. Pengembang)</span>
-                            <span class="font-mono font-bold text-gray-800 dark:text-white text-sm">1234-5678-9012</span>
-                        </div>
-                        <button onclick="copyToClipboard('123456789012', 'Nomor Rekening BCA disalin!')" class="text-xs bg-indigo-100 dark:bg-indigo-900 text-indigo-700 dark:text-indigo-300 px-2.5 py-1.5 rounded-lg font-semibold hover:bg-indigo-200 transition">
+                        <button onclick="copyToClipboard('085214596325', 'Nomor Donasi disalin!')" class="text-xs bg-indigo-100 dark:bg-indigo-900 text-indigo-700 dark:text-indigo-300 px-2.5 py-1.5 rounded-lg font-semibold hover:bg-indigo-200 transition">
                             <i class="fa-regular fa-copy mr-1"></i> Salin
                         </button>
                     </div>
@@ -514,7 +531,12 @@
                 inputPlaceholder: "Contoh : AB-13",
                 donateModalTitle: "Traktir Kopi Pengembang",
                 donateModalDesc: "Dukung pengembangan aplikasi KirimCepat agar terus gratis & bebas iklan!",
-                ewalletTitle: "Nomor E-Wallet / Transfer Bank:"
+                donateBonus: "💡 Donasi minimal Rp 50.000 Gratis Source Code",
+                ewalletTitle: "Nomor Donasi / Transfer:",
+                btnPause: "Pause",
+                btnResume: "Lanjut",
+                btnStop: "Stop",
+                transferCanceled: "Transfer dibatalkan pengguna"
             },
             en: {
                 donateBtn: "Buy Coffee",
@@ -572,14 +594,19 @@
                 inputPlaceholder: "Sample : XY-54",
                 donateModalTitle: "Buy Developer a Coffee",
                 donateModalDesc: "Support KirimCepat development to keep it free & ad-free!",
-                ewalletTitle: "E-Wallet / Bank Account Numbers:"
+                donateBonus: "💡 Minimum donation of Rp 50,000 gets Free Source Code",
+                ewalletTitle: "Donation Number / Transfer:",
+                btnPause: "Pause",
+                btnResume: "Resume",
+                btnStop: "Stop",
+                transferCanceled: "Transfer was canceled by user"
             }
         };
 
         let currentLang = 'id';
 
         function toggleLanguage() {
-            setLanguage(currentLang === 'id' ? 'EN' : 'id'); // fixed toggle logic below
+            setLanguage(currentLang === 'id' ? 'en' : 'id'); 
         }
 
         function setLanguage(lang) {
@@ -639,13 +666,32 @@
 
             document.getElementById('txt-donate-modal-title').innerText = t.donateModalTitle;
             document.getElementById('txt-donate-modal-desc').innerText = t.donateModalDesc;
+            document.getElementById('txt-donate-bonus').innerText = t.donateBonus;
             document.getElementById('txt-ewallet-title').innerText = t.ewalletTitle;
+
+            document.getElementById('txt-btn-pause').innerText = isTransferPaused ? t.btnResume : t.btnPause;
+            document.getElementById('txt-btn-stop').innerText = t.btnStop;
 
             updateStatusUI();
             renderReceivedFiles();
             renderNearbyDevices();
             renderConnectedPeers();
         }
+
+        // --- GLOBAL ESC KEY LISTENER FOR MODALS ---
+        document.addEventListener('keydown', function(event) {
+            if (event.key === "Escape") {
+                const modals = ['modal-scanner', 'modal-zoom-qr', 'modal-donate'];
+                modals.forEach(modalId => {
+                    const modal = document.getElementById(modalId);
+                    if (modal && !modal.classList.contains('hidden')) {
+                        if (modalId === 'modal-scanner') closeScannerModal();
+                        else if (modalId === 'modal-zoom-qr') closeZoomQR();
+                        else if (modalId === 'modal-donate') closeDonateModal();
+                    }
+                });
+            }
+        });
 
         // --- DONATE MODAL FUNCTIONS ---
         function openDonateModal() {
@@ -655,7 +701,7 @@
             const qrisContainer = document.getElementById('qris-qrcode-container');
             if (qrisContainer && qrisContainer.childElementCount === 0) {
                 new QRCode(qrisContainer, {
-                    text: "https://trakteer.id/mulyono_guru_matematika/tip",
+                    text: "085214596325",
                     width: 160,
                     height: 160,
                     colorDark : "#000000",
@@ -674,18 +720,18 @@
             navigator.clipboard.writeText(text).then(() => {
                 Swal.fire({
                     toast: true,
-                    position: 'top',
+                    position: 'bottom-end',
                     icon: 'success',
                     title: message,
                     showConfirmButton: false,
-                    timer: 1500
+                    timer: 3000
                 });
             });
         }
 
         // --- 2. MULTI-PEER WEBRTC & PEERJS SETUP ---
         let peer = null;
-        let activeConnections = new Map(); // peerId -> DataConnection object
+        let activeConnections = new Map(); 
         let myId = "";
         let isMockMode = false;
         
@@ -697,7 +743,15 @@
         let stagedFiles = [];
         let sentHistory = [];
         let receivedFilesList = [];
+        
+        // --- TRANSFER CONTROLS ---
         let isSending = false;
+        let isTransferPaused = false;
+        let isTransferStopped = false;
+        let transferSpeedInterval = null;
+        let bytesSentInInterval = 0;
+        let totalTransferBytes = 0;
+        let totalTransferredBytes = 0;
         
         const userAgent = navigator.userAgent;
         let deviceType = "Desktop";
@@ -1066,9 +1120,17 @@
             if (bytes === 0) return '0 Bytes';
             const k = 1024;
             const dm = decimals < 0 ? 0 : decimals;
-            const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB'];
+            const sizes = ['B', 'KB', 'MB', 'GB', 'TB'];
             const i = Math.floor(Math.log(bytes) / Math.log(k));
             return parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + ' ' + sizes[i];
+        }
+        
+        function formatSpeed(bytesPerSec) {
+            if (bytesPerSec === 0) return '0 B/s';
+            const k = 1024;
+            const sizes = ['B/s', 'KB/s', 'MB/s', 'GB/s'];
+            const i = Math.floor(Math.log(bytesPerSec) / Math.log(k));
+            return parseFloat((bytesPerSec / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
         }
 
         // --- 6. FILE STAGING ---
@@ -1134,7 +1196,7 @@
 
             if (checkedFiles.length === 0 || checkedPeers.length === 0 || isSending) {
                 btnSend.disabled = true;
-                textMain.innerText = `${dictionary[currentLang].btnSend} (0) ke (0)`;
+                textMain.innerText = `${dictionary[currentLang].btnSend} (0) ke (0) Perangkat`;
                 textSize.innerText = "0 Bytes";
             } else {
                 btnSend.disabled = false;
@@ -1169,8 +1231,62 @@
         function unlockScroll() {
             document.body.style.overflow = '';
         }
+        
+        // --- 7. TRANSFER CONTROLS (PAUSE/STOP) ---
+        function togglePauseTransfer() {
+            isTransferPaused = !isTransferPaused;
+            const btnPause = document.getElementById('btn-pause');
+            const icon = btnPause.querySelector('i');
+            const text = document.getElementById('txt-btn-pause');
+            
+            if (isTransferPaused) {
+                icon.className = "fa-solid fa-play text-lg";
+                text.innerText = dictionary[currentLang].btnResume;
+                btnPause.classList.replace('bg-amber-500', 'bg-emerald-500');
+                btnPause.classList.replace('hover:bg-amber-600', 'hover:bg-emerald-600');
+            } else {
+                icon.className = "fa-solid fa-pause text-lg";
+                text.innerText = dictionary[currentLang].btnPause;
+                btnPause.classList.replace('bg-emerald-500', 'bg-amber-500');
+                btnPause.classList.replace('hover:bg-emerald-600', 'hover:bg-amber-600');
+            }
+        }
+        
+        function stopTransfer() {
+            Swal.fire({
+                title: 'Hentikan Transfer?',
+                text: "Proses pengiriman akan dibatalkan.",
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonColor: '#ef4444',
+                cancelButtonColor: '#6b7280',
+                confirmButtonText: 'Ya, Stop!',
+                cancelButtonText: 'Batal'
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    isTransferStopped = true;
+                    isTransferPaused = false; // Memastikan loop yang ter-pause bisa break
+                }
+            });
+        }
+        
+        function resetTransferControls() {
+            isTransferPaused = false;
+            isTransferStopped = false;
+            
+            const btnPause = document.getElementById('btn-pause');
+            btnPause.querySelector('i').className = "fa-solid fa-pause text-lg";
+            document.getElementById('txt-btn-pause').innerText = dictionary[currentLang].btnPause;
+            if(btnPause.classList.contains('bg-emerald-500')) {
+                btnPause.classList.replace('bg-emerald-500', 'bg-amber-500');
+                btnPause.classList.replace('hover:bg-emerald-600', 'hover:bg-amber-600');
+            }
+            
+            document.getElementById('btn-pause').classList.add('hidden');
+            document.getElementById('btn-stop').classList.add('hidden');
+        }
 
-        // --- 7. PARALLEL TRANSFER PROCESS ---
+        // --- 8. PARALLEL TRANSFER PROCESS ---
         async function sendSelectedStagedFiles() {
             const checkedFileIds = getCheckedStageIds();
             const checkedPeerIds = getCheckedPeerIds();
@@ -1182,10 +1298,19 @@
             }
             
             const filesToSend = [];
+            let sizePerPeer = 0;
             checkedFileIds.forEach(id => {
                 const item = stagedFiles.find(i => i.id === id);
-                if (item) filesToSend.push(item.file);
+                if (item) {
+                    filesToSend.push(item.file);
+                    sizePerPeer += item.file.size;
+                }
             });
+            
+            totalTransferBytes = sizePerPeer * checkedPeerIds.length;
+            totalTransferredBytes = 0;
+            bytesSentInInterval = 0;
+            resetTransferControls();
             
             stagedFiles = stagedFiles.filter(i => !checkedFileIds.includes(i.id));
             renderStaging();
@@ -1194,37 +1319,57 @@
             isSending = true;
             updateSendButtonUI();
             
+            document.getElementById('btn-pause').classList.remove('hidden');
+            document.getElementById('btn-stop').classList.remove('hidden');
+            
             const progSection = document.getElementById('progress-section');
             progSection.classList.remove('hidden');
             document.getElementById('btn-send').disabled = true;
             document.getElementById('file-input').disabled = true;
+            
+            document.getElementById('progress-speed').innerText = '0 B/s';
+            updateProgress(0);
+            
+            transferSpeedInterval = setInterval(() => {
+                const speed = bytesSentInInterval / 0.2; 
+                document.getElementById('progress-speed').innerText = formatSpeed(speed);
+                bytesSentInInterval = 0; 
+            }, 200);
 
             try {
-                // Distribusi paralel ke setiap target peer yang dicentang secara bersamaan (Promise.all)
                 const transferPromises = checkedPeerIds.map(async (peerId) => {
                     const conn = activeConnections.get(peerId);
                     if (!conn || !conn.open) return;
 
                     for (const file of filesToSend) {
+                        if(isTransferStopped) return;
                         await sendFileToPeerConnection(conn, file);
                     }
                 });
 
                 await Promise.all(transferPromises);
-
-                filesToSend.forEach(f => addToHistory(f));
-                playSuccessSound();
-                Swal.fire({ 
-                    toast: true, position: 'top-end', icon: 'success', 
-                    title: dictionary[currentLang].alertSuccessSendAll,
-                    showConfirmButton: false, timer: 3000 
-                });
+                
+                if (isTransferStopped) {
+                    Swal.fire({ toast: true, position: 'top-end', icon: 'warning', title: dictionary[currentLang].transferCanceled, showConfirmButton: false, timer: 3000 });
+                } else {
+                    filesToSend.forEach(f => addToHistory(f));
+                    playSuccessSound();
+                    Swal.fire({ 
+                        toast: true, position: 'top-end', icon: 'success', 
+                        title: dictionary[currentLang].alertSuccessSendAll,
+                        showConfirmButton: false, timer: 3000 
+                    });
+                }
 
             } catch (err) {
                 console.error("Parallel Transfer Error", err);
                 Swal.fire('Error', 'Transfer gagal: ' + err.message, 'error');
             } finally {
                 isSending = false;
+                clearInterval(transferSpeedInterval);
+                document.getElementById('progress-speed').innerText = '0 B/s';
+                resetTransferControls();
+                
                 unlockScroll();
                 updateSendButtonUI();
                 document.getElementById('file-input').disabled = false;
@@ -1237,17 +1382,34 @@
         async function sendFileToPeerConnection(conn, file) {
             const totalChunks = Math.ceil(file.size / CHUNK_SIZE);
             document.getElementById('progress-status-text').innerText = `${dictionary[currentLang].sending} ${file.name} (${conn.peer})`;
-            updateProgress(0);
 
             conn.send({ type: 'metadata', name: file.name, size: file.size, mime: file.type, totalChunks: totalChunks });
 
             let offset = 0;
             for (let i = 0; i < totalChunks; i++) {
+                if (isTransferStopped) {
+                    conn.send({ type: 'cancel' });
+                    return; 
+                }
+                
+                while (isTransferPaused && !isTransferStopped) {
+                    await new Promise(resolve => setTimeout(resolve, 200));
+                }
+                
+                if (isTransferStopped) {
+                    conn.send({ type: 'cancel' });
+                    return; 
+                }
+
                 const chunk = file.slice(offset, offset + CHUNK_SIZE);
                 const arrayBuffer = await chunk.arrayBuffer();
                 conn.send({ type: 'chunk', data: arrayBuffer, index: i });
+                
                 offset += CHUNK_SIZE;
-                updateProgress(((i + 1) / totalChunks) * 100);
+                
+                bytesSentInInterval += arrayBuffer.byteLength;
+                totalTransferredBytes += arrayBuffer.byteLength;
+                updateProgress((totalTransferredBytes / totalTransferBytes) * 100);
 
                 while (conn.dataChannel && conn.dataChannel.bufferedAmount > 2 * 1024 * 1024) {
                     await new Promise(resolve => setTimeout(resolve, 50));
@@ -1261,15 +1423,28 @@
                 incomingFileInfo = message;
                 incomingFileData = new Array(message.totalChunks);
                 receivedBytes = 0;
+                
+                bytesSentInInterval = 0;
+                
                 const progSection = document.getElementById('progress-section');
                 progSection.classList.remove('hidden');
                 document.getElementById('progress-status-text').innerText = dictionary[currentLang].receiving + ` ${message.name}`;
+                document.getElementById('progress-speed').innerText = '0 B/s';
                 updateProgress(0);
                 lockScrollToTransfer();
+                
+                if(!transferSpeedInterval) {
+                    transferSpeedInterval = setInterval(() => {
+                        const speed = bytesSentInInterval / 0.2; 
+                        document.getElementById('progress-speed').innerText = formatSpeed(speed);
+                        bytesSentInInterval = 0; 
+                    }, 200);
+                }
 
             } else if (message.type === 'chunk') {
                 incomingFileData[message.index] = message.data;
                 receivedBytes += message.data.byteLength;
+                bytesSentInInterval += message.data.byteLength;
                 updateProgress((receivedBytes / incomingFileInfo.size) * 100);
 
             } else if (message.type === 'eof') {
@@ -1298,14 +1473,25 @@
                     showConfirmButton: false, timer: 3000 
                 });
 
-                setTimeout(() => {
-                    document.getElementById('progress-section').classList.add('hidden');
-                    unlockScroll();
-                }, 2000);
+                cleanupReceive();
                 
-                incomingFileInfo = null;
-                incomingFileData = [];
+            } else if (message.type === 'cancel') {
+                Swal.fire({ toast: true, position: 'top-end', icon: 'warning', title: dictionary[currentLang].transferCanceled, showConfirmButton: false, timer: 3000 });
+                cleanupReceive();
             }
+        }
+        
+        function cleanupReceive() {
+            incomingFileInfo = null;
+            incomingFileData = [];
+            receivedBytes = 0;
+            clearInterval(transferSpeedInterval);
+            transferSpeedInterval = null;
+            
+            setTimeout(() => {
+                document.getElementById('progress-section').classList.add('hidden');
+                unlockScroll();
+            }, 2000);
         }
 
         function updateProgress(percent) {
@@ -1314,7 +1500,7 @@
             document.getElementById('progress-percent').innerText = p + '%';
         }
 
-        // --- 8. RECEIVED FILES MANAGEMENT ---
+        // --- 9. RECEIVED FILES MANAGEMENT ---
         function addReceivedFile(fileObj) {
             const id = 'recv_' + Date.now() + '_' + Math.floor(Math.random() * 1000);
             receivedFilesList.push({ id: id, ...fileObj });
@@ -1376,7 +1562,7 @@
             });
         }
 
-        // --- 9. SENT HISTORY MANAGEMENT ---
+        // --- 10. SENT HISTORY MANAGEMENT ---
         function addToHistory(file) {
             const id = 'hist_' + Date.now() + '_' + Math.floor(Math.random() * 1000);
             sentHistory.push({ id: id, file: file, name: file.name, size: file.size });
@@ -1446,7 +1632,7 @@
             renderHistory();
         }
 
-        // --- 10. AUDIO ---
+        // --- 11. AUDIO ---
         function playSuccessSound() {
             try {
                 const ctx = new (window.AudioContext || window.webkitAudioContext)();
