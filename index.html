@@ -228,7 +228,7 @@
             </div>
 
             <!-- File Input -->
-            <label class="flex flex-col items-center justify-center w-full h-24 sm:h-28 border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-xl cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800 hover:border-indigo-400 dark:hover:border-indigo-500 transition-all group">
+            <label id="drop-zone" class="flex flex-col items-center justify-center w-full h-24 sm:h-28 border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-xl cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800 hover:border-indigo-400 dark:hover:border-indigo-500 transition-all group">
                 <div class="flex flex-col items-center justify-center pt-3 pb-4">
                     <i class="fa-solid fa-cloud-arrow-up text-2xl sm:text-3xl text-gray-400 group-hover:text-indigo-500 mb-1 sm:mb-2 transition-colors"></i>
                     <p class="text-xs sm:text-sm text-gray-500 dark:text-gray-400 font-semibold text-center px-4"><span id="txt-select-file">Pilih Satu/Banyak File</span></p>
@@ -386,7 +386,7 @@
             
             <!-- Info Donasi Source Code -->
             <div class="w-full bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 p-2 rounded-xl text-xs sm:text-sm font-semibold mb-4 border border-indigo-200 dark:border-indigo-800" id="txt-donate-bonus">
-                💡 Donasi minimal Rp 50.000 Gratis Source Code
+                庁 Donasi minimal Rp 50.000 Gratis Source Code
             </div>
             
             <!-- QRIS Image Box (Gopay / Ovo / Pulsa) -->
@@ -419,7 +419,7 @@
                 </div>
             </div>
 
-            <p class="text-[11px] text-gray-400 dark:text-gray-500 italic" id="txt-donate-thanks">Terima kasih atas dukungan tulus Anda! 🙏</p>
+            <p class="text-[11px] text-gray-400 dark:text-gray-500 italic" id="txt-donate-thanks">Terima kasih atas dukungan tulus Anda!</p>
         </div>
     </div>
 
@@ -531,7 +531,7 @@
                 inputPlaceholder: "Contoh : AB-13",
                 donateModalTitle: "Traktir Kopi Pengembang",
                 donateModalDesc: "Dukung pengembangan aplikasi KirimCepat agar terus gratis & bebas iklan!",
-                donateBonus: "💡 Donasi minimal Rp 50.000 Gratis Source Code",
+                donateBonus: "Donasi minimal Rp 50.000 Gratis Source Code",
                 ewalletTitle: "Nomor Donasi / Transfer:",
                 btnPause: "Pause",
                 btnResume: "Lanjut",
@@ -594,7 +594,7 @@
                 inputPlaceholder: "Sample : XY-54",
                 donateModalTitle: "Buy Developer a Coffee",
                 donateModalDesc: "Support KirimCepat development to keep it free & ad-free!",
-                donateBonus: "💡 Minimum donation of Rp 50,000 gets Free Source Code",
+                donateBonus: "庁 Minimum donation of Rp 50,000 gets Free Source Code",
                 ewalletTitle: "Donation Number / Transfer:",
                 btnPause: "Pause",
                 btnResume: "Resume",
@@ -1651,10 +1651,60 @@
             } catch (e) {}
         }
 
+        // --- 12. DRAG AND DROP HANDLER ---
+        function setupDragAndDrop() {
+            const dropZone = document.getElementById('drop-zone');
+
+            // Mencegah behavior default browser saat file diseret
+            ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+                dropZone.addEventListener(eventName, preventDefaults, false);
+                document.body.addEventListener(eventName, preventDefaults, false);
+            });
+
+            function preventDefaults(e) {
+                e.preventDefault();
+                e.stopPropagation();
+            }
+
+            // Efek visual saat file diseret ke area drop
+            ['dragenter', 'dragover'].forEach(eventName => {
+                dropZone.addEventListener(eventName, highlight, false);
+            });
+
+            ['dragleave', 'drop'].forEach(eventName => {
+                dropZone.addEventListener(eventName, unhighlight, false);
+            });
+
+            function highlight(e) {
+                dropZone.classList.add('border-indigo-500', 'bg-indigo-50', 'dark:bg-indigo-900/30');
+            }
+
+            function unhighlight(e) {
+                dropZone.classList.remove('border-indigo-500', 'bg-indigo-50', 'dark:bg-indigo-900/30');
+            }
+
+            // Menangani file yang dilepas (drop)
+            dropZone.addEventListener('drop', handleDrop, false);
+
+            function handleDrop(e) {
+                const dt = e.dataTransfer;
+                const files = Array.from(dt.files);
+
+                if (files.length > 0) {
+                    files.forEach(f => {
+                        stagedFiles.push({ id: 'stage_' + Date.now() + '_' + Math.floor(Math.random() * 1000), file: f });
+                    });
+                    renderStaging();
+                    stageSelectAll();
+                }
+            }
+        }
+
         // --- INIT ---
         window.onload = () => {
             setLanguage('id'); 
             initPeer();
+            setupDragAndDrop();
         };
 
     </script>
